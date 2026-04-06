@@ -245,7 +245,7 @@ local ThemeManager = {} do
 		return tab:AddLeftGroupbox('Themes')
 	end
 
-	function Library:CreateCursorManager(groupbox)
+	function ThemeManager:CreateCursorManager(groupbox)
 		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Custom Cursor', Default = self.Library.CursorAlwaysOn }):OnChanged(function()
 			self.Library.CursorAlwaysOn = Options.ThemeManager_CustomCursor.Value
 			self.Library:UpdateCursor()
