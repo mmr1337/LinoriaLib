@@ -178,7 +178,6 @@ local ThemeManager = {} do
 			theme[field] = Options[field].Value:ToHex()
 			theme[field .. '_RGB'] = Options[field].RGB
 			theme[field .. '_Pulsar'] = Options[field].Pulsar
-			theme[field .. '_Neon'] = Options[field].Neon
 		end
 
 		writefile(self.Folder .. '/themes/' .. file .. '.json', httpService:JSONEncode(theme))
@@ -246,10 +245,44 @@ local ThemeManager = {} do
 		return tab:AddLeftGroupbox('Themes')
 	end
 
+	function Library:CreateCursorManager(groupbox)
+		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Custom Cursor', Default = self.Library.CursorAlwaysOn }):OnChanged(function()
+			self.Library.CursorAlwaysOn = Options.ThemeManager_CustomCursor.Value
+			self.Library:UpdateCursor()
+		end)
+
+		groupbox:AddInput('ThemeManager_CustomCursorID', { Text = 'Cursor ID', Default = self.Library.CursorID }):OnChanged(function()
+			self.Library.CursorID = Options.ThemeManager_CustomCursorID.Value
+			self.Library:CreateCursor()
+		end)
+
+		groupbox:AddSlider('ThemeManager_CustomCursorSize', { Text = 'Cursor Size', Default = 32, Min = 16, Max = 64, Rounding = 0 }):OnChanged(function()
+			self.Library.CursorSize = Options.ThemeManager_CustomCursorSize.Value
+			self.Library:UpdateCursor()
+		end)
+
+		groupbox:AddToggle('ThemeManager_CustomCursorOutline', { Text = 'Cursor Outline', Default = true }):OnChanged(function()
+			self.Library.CursorOutline = Options.ThemeManager_CustomCursorOutline.Value
+			self.Library:UpdateCursor()
+		end)
+
+		groupbox:AddLabel('Outline Color'):AddColorPicker('ThemeManager_CustomCursorOutlineColor', { Default = Color3.new(0, 0, 0) }):OnChanged(function()
+			self.Library.CursorOutlineColor = Options.ThemeManager_CustomCursorOutlineColor.Value
+			self.Library:UpdateCursor()
+		end)
+
+		Options.ThemeManager_CustomCursorOutlineColor:OnChanged(function()
+			self.Library.CursorOutlineRGB = Options.ThemeManager_CustomCursorOutlineColor.RGB
+		end)
+	end
+
 	function ThemeManager:ApplyToTab(tab)
 		assert(self.Library, 'Must set ThemeManager.Library first!')
-		local groupbox = self:CreateGroupBox(tab)
-		self:CreateThemeManager(groupbox)
+		local themeGroupbox = self:CreateGroupBox(tab)
+		self:CreateThemeManager(themeGroupbox)
+
+		local cursorGroupbox = tab:AddLeftGroupbox('Custom Cursor')
+		self:CreateCursorManager(cursorGroupbox)
 	end
 
 	function ThemeManager:ApplyToGroupbox(groupbox)
