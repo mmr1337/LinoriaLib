@@ -3771,10 +3771,7 @@ end;
 Players.PlayerAdded:Connect(OnPlayerChange);
 Players.PlayerRemoving:Connect(OnPlayerChange);
 
-getgenv().Library = Library
-return Library
 function Library:UpdateCursor()
-    if not Library.CursorLabel then return end
 
     Library.CursorLabel.Image = Library.CursorID
     Library.CursorLabel.Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize)
