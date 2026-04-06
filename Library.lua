@@ -44,25 +44,75 @@ local Library = {
 
     Signals = {};
     ScreenGui = ScreenGui;
+    
+    -- Theme System
+    Theme = {
+        CurrentTheme = "Default",
+        Themes = {},
+        PulsarEnabled = false,
+        RGBEnabled = false,
+        NeonEnabled = false,
+        PulsarSpeed = 1,
+        RGBSpeed = 1,
+        NeonIntensity = 0.5,
+        CustomColors = {}
+    }
 };
 
 local RainbowStep = 0
 local Hue = 0
+local PulsarValue = 0
+local PulsarDirection = 1
 
 table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
     RainbowStep = RainbowStep + Delta
-
-    if RainbowStep >= (1 / 60) then
-        RainbowStep = 0
-
-        Hue = Hue + (1 / 400);
-
-        if Hue > 1 then
-            Hue = 0;
-        end;
-
+    
+    -- RGB Effect
+    if Library.Theme.RGBEnabled then
+        Hue = Hue + (Delta * Library.Theme.RGBSpeed / 2);
+        if Hue > 1 then Hue = 0; end;
         Library.CurrentRainbowHue = Hue;
         Library.CurrentRainbowColor = Color3.fromHSV(Hue, 0.8, 1);
+        Library.AccentColor = Library.CurrentRainbowColor
+        Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+    end
+    
+    -- Pulsar Effect
+    if Library.Theme.PulsarEnabled then
+        PulsarValue = PulsarValue + (Delta * Library.Theme.PulsarSpeed)
+        if PulsarValue >= 1 then
+            PulsarValue = 1
+            PulsarDirection = -1
+        elseif PulsarValue <= 0 then
+            PulsarValue = 0
+            PulsarDirection = 1
+        end
+        PulsarValue = PulsarValue + (Delta * Library.Theme.PulsarSpeed * PulsarDirection)
+        PulsarValue = math.clamp(PulsarValue, 0, 1)
+        
+        local PulsarColor = Color3.new(
+            Library.AccentColor.R * (0.5 + PulsarValue * 0.5),
+            Library.AccentColor.G * (0.5 + PulsarValue * 0.5),
+            Library.AccentColor.B * (0.5 + PulsarValue * 0.5)
+        )
+        Library.AccentColor = PulsarColor
+        Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+    end
+    
+    -- Neon Effect
+    if Library.Theme.NeonEnabled then
+        local NeonMultiplier = 1 + Library.Theme.NeonIntensity
+        Library.AccentColor = Color3.new(
+            math.min(Library.AccentColor.R * NeonMultiplier, 1),
+            math.min(Library.AccentColor.G * NeonMultiplier, 1),
+            math.min(Library.AccentColor.B * NeonMultiplier, 1)
+        )
+        Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+    end
+    
+    if RainbowStep >= (1 / 60) then
+        RainbowStep = 0
+        Library:UpdateColorsUsingRegistry();
     end
 end))
 
@@ -353,16 +403,6 @@ function Library:RemoveFromRegistry(Instance)
 end;
 
 function Library:UpdateColorsUsingRegistry()
-    -- TODO: Could have an 'active' list of objects
-    -- where the active list only contains Visible objects.
-
-    -- IMPL: Could setup .Changed events on the AddToRegistry function
-    -- that listens for the 'Visible' propert being changed.
-    -- Visible: true => Add to active list, and call UpdateColors function
-    -- Visible: false => Remove from active list.
-
-    -- The above would be especially efficient for a rainbow menu color or live color-changing.
-
     for Idx, Object in next, Library.Registry do
         for Property, ColorIdx in next, Object.Properties do
             if type(ColorIdx) == 'string' then
@@ -375,18 +415,15 @@ function Library:UpdateColorsUsingRegistry()
 end;
 
 function Library:GiveSignal(Signal)
-    -- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
     table.insert(Library.Signals, Signal)
 end
 
 function Library:Unload()
-    -- Unload all of the signals
     for Idx = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Idx)
         Connection:Disconnect()
     end
 
-     -- Call our unload callback, maybe to undo some hooks etc
     if Library.OnUnload then
         Library.OnUnload()
     end
@@ -396,6 +433,318 @@ end
 
 function Library:OnUnload(Callback)
     Library.OnUnload = Callback
+end
+
+-- Theme Management Functions
+function Library:SetTheme(ThemeName)
+    local Theme = Library.Theme.Themes[ThemeName]
+    if not Theme then return end
+    
+    Library.Theme.CurrentTheme = ThemeName
+    Library.Theme.PulsarEnabled = Theme.PulsarEnabled or false
+    Library.Theme.RGBEnabled = Theme.RGBEnabled or false
+    Library.Theme.NeonEnabled = Theme.NeonEnabled or false
+    Library.Theme.PulsarSpeed = Theme.PulsarSpeed or 1
+    Library.Theme.RGBSpeed = Theme.RGBSpeed or 1
+    Library.Theme.NeonIntensity = Theme.NeonIntensity or 0.5
+    
+    if Theme.Colors then
+        if Theme.Colors.AccentColor then
+            Library.AccentColor = Theme.Colors.AccentColor
+            Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+        end
+        if Theme.Colors.MainColor then
+            Library.MainColor = Theme.Colors.MainColor
+        end
+        if Theme.Colors.BackgroundColor then
+            Library.BackgroundColor = Theme.Colors.BackgroundColor
+        end
+        if Theme.Colors.FontColor then
+            Library.FontColor = Theme.Colors.FontColor
+        end
+        if Theme.Colors.OutlineColor then
+            Library.OutlineColor = Theme.Colors.OutlineColor
+        end
+    end
+    
+    Library:UpdateColorsUsingRegistry()
+end
+
+function Library:SaveCurrentTheme(ThemeName)
+    Library.Theme.Themes[ThemeName] = {
+        Colors = {
+            AccentColor = Library.AccentColor,
+            MainColor = Library.MainColor,
+            BackgroundColor = Library.BackgroundColor,
+            FontColor = Library.FontColor,
+            OutlineColor = Library.OutlineColor
+        },
+        PulsarEnabled = Library.Theme.PulsarEnabled,
+        RGBEnabled = Library.Theme.RGBEnabled,
+        NeonEnabled = Library.Theme.NeonEnabled,
+        PulsarSpeed = Library.Theme.PulsarSpeed,
+        RGBSpeed = Library.Theme.RGBSpeed,
+        NeonIntensity = Library.Theme.NeonIntensity
+    }
+end
+
+function Library:CreateThemeSystem(Window)
+    local ThemeTab = Window:AddTab("Themes")
+    
+    -- Left side for theme management
+    local ThemeGroup = ThemeTab:AddLeftGroupbox("Theme Manager")
+    
+    -- Theme selection dropdown
+    local ThemeNames = {"Default"}
+    for Name, _ in pairs(Library.Theme.Themes) do
+        if Name ~= "Default" then
+            table.insert(ThemeNames, Name)
+        end
+    end
+    
+    local ThemeDropdown = ThemeGroup:AddDropdown(nil, {
+        Text = "Select Theme",
+        Values = ThemeNames,
+        Default = "Default",
+        Callback = function(Value)
+            if Value then
+                Library:SetTheme(Value)
+            end
+        end
+    })
+    
+    -- Save current theme button
+    local SaveThemeInput = ThemeGroup:AddInput(nil, {
+        Text = "Theme Name",
+        Placeholder = "Enter theme name",
+        Default = "MyTheme",
+        Finished = true,
+        Callback = function(Value) end
+    })
+    
+    ThemeGroup:AddButton({
+        Text = "Save Current Theme",
+        Func = function()
+            local ThemeName = SaveThemeInput.Value
+            if ThemeName and ThemeName ~= "" then
+                Library:SaveCurrentTheme(ThemeName)
+                Library:Notify("Theme '" .. ThemeName .. "' saved!", 2)
+                -- Update dropdown
+                local NewNames = {"Default"}
+                for Name, _ in pairs(Library.Theme.Themes) do
+                    if Name ~= "Default" then
+                        table.insert(NewNames, Name)
+                    end
+                end
+                ThemeDropdown:SetValues(NewNames)
+            else
+                Library:Notify("Please enter a theme name!", 2)
+            end
+        end
+    })
+    
+    -- Right side for color customization
+    local ColorGroup = ThemeTab:AddRightGroupbox("Color Customization")
+    
+    -- Color pickers for all UI elements
+    local AccentPicker = ColorGroup:AddColorPicker(nil, {
+        Title = "Accent Color",
+        Default = Library.AccentColor,
+        Callback = function(Color)
+            Library.AccentColor = Color
+            Library.AccentColorDark = Library:GetDarkerColor(Color)
+            Library:UpdateColorsUsingRegistry()
+        end
+    })
+    
+    local MainColorPicker = ColorGroup:AddColorPicker(nil, {
+        Title = "Main Color",
+        Default = Library.MainColor,
+        Callback = function(Color)
+            Library.MainColor = Color
+            Library:UpdateColorsUsingRegistry()
+        end
+    })
+    
+    local BackgroundPicker = ColorGroup:AddColorPicker(nil, {
+        Title = "Background Color",
+        Default = Library.BackgroundColor,
+        Callback = function(Color)
+            Library.BackgroundColor = Color
+            Library:UpdateColorsUsingRegistry()
+        end
+    })
+    
+    local FontPicker = ColorGroup:AddColorPicker(nil, {
+        Title = "Font Color",
+        Default = Library.FontColor,
+        Callback = function(Color)
+            Library.FontColor = Color
+            Library:UpdateColorsUsingRegistry()
+        end
+    })
+    
+    local OutlinePicker = ColorGroup:AddColorPicker(nil, {
+        Title = "Outline Color",
+        Default = Library.OutlineColor,
+        Callback = function(Color)
+            Library.OutlineColor = Color
+            Library:UpdateColorsUsingRegistry()
+        end
+    })
+    
+    -- Effects group
+    local EffectsGroup = ThemeTab:AddLeftGroupbox("Visual Effects")
+    
+    -- Pulsar Effect
+    local PulsarToggle = EffectsGroup:AddToggle(nil, {
+        Text = "Pulsar Effect",
+        Default = false,
+        Callback = function(Value)
+            Library.Theme.PulsarEnabled = Value
+            if not Value then
+                Library.AccentColor = AccentPicker.Value
+                Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+                Library:UpdateColorsUsingRegistry()
+            end
+        end
+    })
+    
+    local PulsarSpeed = EffectsGroup:AddSlider(nil, {
+        Text = "Pulsar Speed",
+        Default = 1,
+        Min = 0.5,
+        Max = 3,
+        Rounding = 1,
+        Callback = function(Value)
+            Library.Theme.PulsarSpeed = Value
+        end
+    })
+    
+    -- RGB Effect
+    local RGBToggle = EffectsGroup:AddToggle(nil, {
+        Text = "RGB Effect",
+        Default = false,
+        Callback = function(Value)
+            Library.Theme.RGBEnabled = Value
+            if Value then
+                Library.Theme.PulsarEnabled = false
+                PulsarToggle:SetValue(false)
+                Library.Theme.NeonEnabled = false
+                NeonToggle:SetValue(false)
+            end
+        end
+    })
+    
+    local RGBSpeedSlider = EffectsGroup:AddSlider(nil, {
+        Text = "RGB Speed",
+        Default = 1,
+        Min = 0.5,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(Value)
+            Library.Theme.RGBSpeed = Value
+        end
+    })
+    
+    -- Neon Effect
+    local NeonToggle = EffectsGroup:AddToggle(nil, {
+        Text = "Neon Effect",
+        Default = false,
+        Callback = function(Value)
+            Library.Theme.NeonEnabled = Value
+            if Value then
+                Library.Theme.PulsarEnabled = false
+                PulsarToggle:SetValue(false)
+                Library.Theme.RGBEnabled = false
+                RGBToggle:SetValue(false)
+            end
+        end
+    })
+    
+    local NeonIntensity = EffectsGroup:AddSlider(nil, {
+        Text = "Neon Intensity",
+        Default = 0.5,
+        Min = 0.1,
+        Max = 1,
+        Rounding = 1,
+        Callback = function(Value)
+            Library.Theme.NeonIntensity = Value
+        end
+    })
+    
+    -- Reset button
+    EffectsGroup:AddButton({
+        Text = "Reset All Effects",
+        Func = function()
+            PulsarToggle:SetValue(false)
+            RGBToggle:SetValue(false)
+            NeonToggle:SetValue(false)
+            Library.Theme.PulsarEnabled = false
+            Library.Theme.RGBEnabled = false
+            Library.Theme.NeonEnabled = false
+            Library.AccentColor = AccentPicker.Value
+            Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor)
+            Library:UpdateColorsUsingRegistry()
+            Library:Notify("All effects disabled!", 2)
+        end
+    })
+    
+    -- Default themes
+    Library.Theme.Themes["Default"] = {
+        Colors = {
+            AccentColor = Color3.fromRGB(0, 85, 255),
+            MainColor = Color3.fromRGB(28, 28, 28),
+            BackgroundColor = Color3.fromRGB(20, 20, 20),
+            FontColor = Color3.fromRGB(255, 255, 255),
+            OutlineColor = Color3.fromRGB(50, 50, 50)
+        },
+        PulsarEnabled = false,
+        RGBEnabled = false,
+        NeonEnabled = false,
+        PulsarSpeed = 1,
+        RGBSpeed = 1,
+        NeonIntensity = 0.5
+    }
+    
+    Library.Theme.Themes["Red Theme"] = {
+        Colors = {
+            AccentColor = Color3.fromRGB(255, 50, 50),
+            MainColor = Color3.fromRGB(30, 20, 20),
+            BackgroundColor = Color3.fromRGB(25, 15, 15),
+            FontColor = Color3.fromRGB(255, 200, 200),
+            OutlineColor = Color3.fromRGB(80, 40, 40)
+        },
+        PulsarEnabled = false,
+        RGBEnabled = false,
+        NeonEnabled = false
+    }
+    
+    Library.Theme.Themes["Green Theme"] = {
+        Colors = {
+            AccentColor = Color3.fromRGB(50, 255, 50),
+            MainColor = Color3.fromRGB(20, 30, 20),
+            BackgroundColor = Color3.fromRGB(15, 25, 15),
+            FontColor = Color3.fromRGB(200, 255, 200),
+            OutlineColor = Color3.fromRGB(40, 80, 40)
+        },
+        PulsarEnabled = false,
+        RGBEnabled = false,
+        NeonEnabled = false
+    }
+    
+    Library.Theme.Themes["Purple Theme"] = {
+        Colors = {
+            AccentColor = Color3.fromRGB(160, 50, 255),
+            MainColor = Color3.fromRGB(25, 20, 30),
+            BackgroundColor = Color3.fromRGB(20, 15, 25),
+            FontColor = Color3.fromRGB(220, 200, 255),
+            OutlineColor = Color3.fromRGB(60, 40, 80)
+        },
+        PulsarEnabled = false,
+        RGBEnabled = false,
+        NeonEnabled = false
+    }
 end
 
 Library:GiveSignal(ScreenGui.DescendantRemoving:Connect(function(Instance)
@@ -411,7 +760,6 @@ do
 
     function Funcs:AddColorPicker(Idx, Info)
         local ToggleLabel = self.TextLabel;
-        -- local Container = self.Container;
 
         assert(Info.Default, 'AddColorPicker: Missing default value.');
 
@@ -442,7 +790,6 @@ do
             Parent = ToggleLabel;
         });
 
-        -- Transparency image taken from https://github.com/matas3535/SplixPrivateDrawingLibrary/blob/main/Library.lua cus i'm lazy
         local CheckerFrame = Library:Create('ImageLabel', {
             BorderSizePixel = 0;
             Size = UDim2.new(0, 27, 0, 13);
@@ -451,11 +798,6 @@ do
             Visible = not not Info.Transparency;
             Parent = DisplayFrame;
         });
-
-        -- 1/16/23
-        -- Rewrote this to be placed inside the Library ScreenGui
-        -- There was some issue which caused RelativeOffset to be way off
-        -- Thus the color picker would never show
 
         local PickerFrameOuter = Library:Create('Frame', {
             Name = 'Color';
@@ -659,7 +1001,7 @@ do
             Position = UDim2.fromOffset(5, 5);
             TextXAlignment = Enum.TextXAlignment.Left;
             TextSize = 14;
-            Text = ColorPicker.Title,--Info.Default;
+            Text = ColorPicker.Title,
             TextWrapped = false;
             ZIndex = 16;
             Parent = PickerFrameInner;
@@ -1404,7 +1746,6 @@ do
     end;
 
     function Funcs:AddButton(...)
-        -- TODO: Eventually redo this
         local Button = {};
         local function ProcessButtonParams(Class, Obj, ...)
             local Props = select(1, ...)
@@ -1759,28 +2100,20 @@ do
             end);
         end
 
-        -- https://devforum.roblox.com/t/how-to-make-textboxes-follow-current-cursor-position/1368429/6
-        -- thank you nicemike40 :)
-
         local function Update()
             local PADDING = 2
             local reveal = Container.AbsoluteSize.X
 
             if not Box:IsFocused() or Box.TextBounds.X <= reveal - 2 * PADDING then
-                -- we aren't focused, or we fit so be normal
                 Box.Position = UDim2.new(0, PADDING, 0, 0)
             else
-                -- we are focused and don't fit, so adjust position
                 local cursor = Box.CursorPosition
                 if cursor ~= -1 then
-                    -- calculate pixel width of text from start to cursor
                     local subtext = string.sub(Box.Text, 1, cursor-1)
                     local width = TextService:GetTextSize(subtext, Box.TextSize, Box.Font, Vector2.new(math.huge, math.huge)).X
 
-                    -- check if we're inside the box with the cursor
                     local currentCursorPos = Box.Position.X.Offset + width
 
-                    -- adjust if necessary
                     if currentCursorPos < PADDING then
                         Box.Position = UDim2.fromOffset(PADDING-width, 0)
                     elseif currentCursorPos > reveal - PADDING - 1 then
@@ -1926,7 +2259,7 @@ do
 
         ToggleRegion.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
-                Toggle:SetValue(not Toggle.Value) -- Why was it not like this from the start?
+                Toggle:SetValue(not Toggle.Value)
                 Library:AttemptSave();
             end;
         end);
@@ -3202,7 +3535,6 @@ function Library:CreateWindow(...)
             local BoxInner = Library:Create('Frame', {
                 BackgroundColor3 = Library.BackgroundColor;
                 BorderColor3 = Color3.new(0, 0, 0);
-                -- BorderMode = Enum.BorderMode.Inset;
                 Size = UDim2.new(1, -2, 1, -2);
                 Position = UDim2.new(0, 1, 0, 1);
                 ZIndex = 4;
@@ -3302,7 +3634,6 @@ function Library:CreateWindow(...)
             local BoxInner = Library:Create('Frame', {
                 BackgroundColor3 = Library.BackgroundColor;
                 BorderColor3 = Color3.new(0, 0, 0);
-                -- BorderMode = Enum.BorderMode.Inset;
                 Size = UDim2.new(1, -2, 1, -2);
                 Position = UDim2.new(0, 1, 0, 1);
                 ZIndex = 4;
@@ -3458,7 +3789,6 @@ function Library:CreateWindow(...)
                 Tab:AddBlank(3);
                 Tab:Resize();
 
-                -- Show first tab (number is 2 cus of the UIListLayout that also sits in that instance)
                 if #TabboxButtons:GetChildren() == 2 then
                     Tab:Show();
                 end;
@@ -3485,7 +3815,6 @@ function Library:CreateWindow(...)
             end;
         end);
 
-        -- This was the first tab added, so we show it by default.
         if #TabContainer:GetChildren() == 1 then
             Tab:ShowTab();
         end;
@@ -3518,11 +3847,9 @@ function Library:CreateWindow(...)
         ModalElement.Modal = Toggled;
 
         if Toggled then
-            -- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
             Outer.Visible = true;
 
             task.spawn(function()
-                -- TODO: add cursor fade?
                 local State = InputService.MouseIconEnabled;
 
                 local Cursor = Drawing.new('Triangle');
@@ -3615,6 +3942,9 @@ function Library:CreateWindow(...)
     if Config.AutoShow then task.spawn(Library.Toggle) end
 
     Window.Holder = Outer;
+    
+    -- Initialize theme system
+    Library:CreateThemeSystem(Window)
 
     return Window;
 end;
