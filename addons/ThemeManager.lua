@@ -246,33 +246,32 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:CreateCursorManager(groupbox)
-		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Custom Cursor', Default = self.Library.CursorAlwaysOn }):OnChanged(function()
-			self.Library.CursorAlwaysOn = Options.ThemeManager_CustomCursor.Value
+		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Custom Cursor', Default = self.Library.CursorAlwaysOn }):OnChanged(function(Value)
+			self.Library.CursorAlwaysOn = Value
 			self.Library:UpdateCursor()
 		end)
 
-		groupbox:AddInput('ThemeManager_CustomCursorID', { Text = 'Cursor ID', Default = self.Library.CursorID }):OnChanged(function()
-			self.Library.CursorID = Options.ThemeManager_CustomCursorID.Value
+		groupbox:AddInput('ThemeManager_CustomCursorID', { Text = 'Cursor ID', Default = self.Library.CursorID }):OnChanged(function(Value)
+			self.Library.CursorID = Value
 			self.Library:CreateCursor()
 		end)
 
-		groupbox:AddSlider('ThemeManager_CustomCursorSize', { Text = 'Cursor Size', Default = 32, Min = 16, Max = 64, Rounding = 0 }):OnChanged(function()
-			self.Library.CursorSize = Options.ThemeManager_CustomCursorSize.Value
+		groupbox:AddSlider('ThemeManager_CustomCursorSize', { Text = 'Cursor Size', Default = 32, Min = 16, Max = 64, Rounding = 0 }):OnChanged(function(Value)
+			self.Library.CursorSize = Value
 			self.Library:UpdateCursor()
 		end)
 
-		groupbox:AddToggle('ThemeManager_CustomCursorOutline', { Text = 'Cursor Outline', Default = true }):OnChanged(function()
-			self.Library.CursorOutline = Options.ThemeManager_CustomCursorOutline.Value
+		groupbox:AddToggle('ThemeManager_CustomCursorOutline', { Text = 'Cursor Outline', Default = true }):OnChanged(function(Value)
+			self.Library.CursorOutline = Value
 			self.Library:UpdateCursor()
 		end)
 
-		groupbox:AddLabel('Outline Color'):AddColorPicker('ThemeManager_CustomCursorOutlineColor', { Default = Color3.new(0, 0, 0) }):OnChanged(function()
-			self.Library.CursorOutlineColor = Options.ThemeManager_CustomCursorOutlineColor.Value
+		local CursorOutlineColorPicker = groupbox:AddLabel('Outline Color'):AddColorPicker('ThemeManager_CustomCursorOutlineColor', { Default = Color3.new(0, 0, 0) })
+		
+		CursorOutlineColorPicker:OnChanged(function(Value)
+			self.Library.CursorOutlineColor = Value
+			self.Library.CursorOutlineRGB = CursorOutlineColorPicker.RGB
 			self.Library:UpdateCursor()
-		end)
-
-		Options.ThemeManager_CustomCursorOutlineColor:OnChanged(function()
-			self.Library.CursorOutlineRGB = Options.ThemeManager_CustomCursorOutlineColor.RGB
 		end)
 	end
 
