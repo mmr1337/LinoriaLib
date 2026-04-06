@@ -246,7 +246,12 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:CreateCursorManager(groupbox)
-		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Custom Cursor', Default = self.Library.CursorAlwaysOn }):OnChanged(function(Value)
+		groupbox:AddToggle('ThemeManager_CustomCursorEnabled', { Text = 'Enable Custom Cursor', Default = self.Library.CursorEnabled }):OnChanged(function(Value)
+			self.Library.CursorEnabled = Value
+			self.Library:UpdateCursor()
+		end)
+
+		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Always On', Default = self.Library.CursorAlwaysOn }):OnChanged(function(Value)
 			self.Library.CursorAlwaysOn = Value
 			self.Library:UpdateCursor()
 		end)
@@ -258,6 +263,11 @@ local ThemeManager = {} do
 
 		groupbox:AddSlider('ThemeManager_CustomCursorSize', { Text = 'Cursor Size', Default = 32, Min = 16, Max = 64, Rounding = 0 }):OnChanged(function(Value)
 			self.Library.CursorSize = Value
+			self.Library:UpdateCursor()
+		end)
+
+		groupbox:AddSlider('ThemeManager_CustomCursorRounding', { Text = 'Cursor Rounding', Default = 0, Min = 0, Max = 32, Rounding = 0 }):OnChanged(function(Value)
+			self.Library.CursorRounding = Value
 			self.Library:UpdateCursor()
 		end)
 
