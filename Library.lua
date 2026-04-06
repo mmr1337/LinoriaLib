@@ -44,6 +44,13 @@ local Library = {
 
     Signals = {};
     ScreenGui = ScreenGui;
+
+    CursorAlwaysOn = false;
+    CursorSize = 32;
+    CursorID = 'rbxassetid://98168875787365';
+    CursorOutline = true;
+    CursorOutlineColor = Color3.new(0, 0, 0);
+    CursorOutlineRGB = false;
 };
 
 local RainbowStep = 0
@@ -71,6 +78,17 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
         PulsarStep = 0
 
         Library.CurrentPulsarValue = (math.sin(tick() * 5) + 1) / 2
+    end
+
+    if Library.CursorLabel then
+        local MousePos = InputService:GetMouseLocation()
+        Library.CursorLabel.Position = UDim2.fromOffset(MousePos.X, MousePos.Y)
+        InputService.MouseIconEnabled = not (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
+        Library.CursorLabel.Visible = (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
+
+        if Library.CursorOutlineRGB then
+            Library.CursorOutlineLabel.ImageColor3 = Library.CurrentRainbowColor
+        end
     end
 
     Library:UpdateColorsUsingRegistry()
@@ -368,20 +386,18 @@ function Library:GetColor(ColorIdx)
 
     local Rainbow = Library[ColorIdx .. 'RGB'];
     local Pulsar = Library[ColorIdx .. 'Pulsar'];
-    local Neon = Library[ColorIdx .. 'Neon'];
+    local RGBSpeed = Library[ColorIdx .. 'RGBSpeed'] or 1;
+    local PulsarSpeed = Library[ColorIdx .. 'PulsarSpeed'] or 1;
 
     if Rainbow then
-        return Library.CurrentRainbowColor;
+        local H = (tick() * (RGBSpeed / 10)) % 1;
+        return Color3.fromHSV(H, 0.8, 1);
     end
 
     if Pulsar then
-        local H, S, V = Color3.toHSV(Color);
-        return Color3.fromHSV(H, S, V * Library.CurrentPulsarValue);
-    end
-
-    if Neon then
-        local H, S, V = Color3.toHSV(Color);
-        return Color3.fromHSV(H, S, 1); -- Max brightness for Neon
+        local PulsarColor = Library[ColorIdx .. 'PulsarColor'] or Color3.new(0, 0, 0);
+        local Alpha = (math.sin(tick() * (PulsarSpeed * 5)) + 1) / 2;
+        return Color:Lerp(PulsarColor, Alpha);
     end
 
     return Color;
@@ -449,7 +465,10 @@ do
 
             RGB = false;
             Pulsar = false;
-            Neon = false;
+
+            RGBSpeed = 1;
+            PulsarSpeed = 1;
+            PulsarColor = Color3.new(0, 0, 0);
         };
 
         function ColorPicker:SetHSVFromRGB(Color)
@@ -833,8 +852,29 @@ do
                 ColorPicker:SetPulsar(not ColorPicker.Pulsar)
             end)
 
-            ContextMenu:AddOption('Neon', function()
-                ColorPicker:SetNeon(not ColorPicker.Neon)
+            ContextMenu:AddOption('RGB Speed +', function()
+                ColorPicker:SetRGBSpeed(math.clamp(ColorPicker.RGBSpeed + 0.1, 0.1, 10))
+                Library:Notify('RGB Speed: ' .. math.floor(ColorPicker.RGBSpeed * 10) / 10, 2)
+            end)
+
+            ContextMenu:AddOption('RGB Speed -', function()
+                ColorPicker:SetRGBSpeed(math.clamp(ColorPicker.RGBSpeed - 0.1, 0.1, 10))
+                Library:Notify('RGB Speed: ' .. math.floor(ColorPicker.RGBSpeed * 10) / 10, 2)
+            end)
+
+            ContextMenu:AddOption('Pulsar Speed +', function()
+                ColorPicker:SetPulsarSpeed(math.clamp(ColorPicker.PulsarSpeed + 0.1, 0.1, 10))
+                Library:Notify('Pulsar Speed: ' .. math.floor(ColorPicker.PulsarSpeed * 10) / 10, 2)
+            end)
+
+            ContextMenu:AddOption('Pulsar Speed -', function()
+                ColorPicker:SetPulsarSpeed(math.clamp(ColorPicker.PulsarSpeed - 0.1, 0.1, 10))
+                Library:Notify('Pulsar Speed: ' .. math.floor(ColorPicker.PulsarSpeed * 10) / 10, 2)
+            end)
+
+            ContextMenu:AddOption('Set Pulsar Color', function()
+                Library:Notify('Pulsar highlight color set to current!', 2)
+                ColorPicker:SetPulsarColor(ColorPicker.Value)
             end)
 
         end
@@ -929,7 +969,7 @@ do
             Library.OpenedFrames[PickerFrameOuter] = nil;
         end;
 
-        function ColorPicker:SetValue(HSV, Transparency, RGB, Pulsar, Neon)
+        function ColorPicker:SetValue(HSV, Transparency, RGB, Pulsar)
             local Color = Color3.fromHSV(HSV[1], HSV[2], HSV[3]);
 
             ColorPicker.Transparency = Transparency or 0;
@@ -937,18 +977,16 @@ do
 
             ColorPicker:SetRGB(RGB)
             ColorPicker:SetPulsar(Pulsar)
-            ColorPicker:SetNeon(Neon)
 
             ColorPicker:Display();
         end;
 
-        function ColorPicker:SetValueRGB(Color, Transparency, RGB, Pulsar, Neon)
+        function ColorPicker:SetValueRGB(Color, Transparency, RGB, Pulsar)
             ColorPicker.Transparency = Transparency or 0;
             ColorPicker:SetHSVFromRGB(Color);
 
             ColorPicker:SetRGB(RGB)
             ColorPicker:SetPulsar(Pulsar)
-            ColorPicker:SetNeon(Neon)
 
             ColorPicker:Display();
         end;
@@ -965,7 +1003,6 @@ do
 
             if Value then
                 ColorPicker:SetPulsar(false)
-                ColorPicker:SetNeon(false)
             end
         end
 
@@ -981,24 +1018,22 @@ do
 
             if Value then
                 ColorPicker:SetRGB(false)
-                ColorPicker:SetNeon(false)
             end
         end
 
-        function ColorPicker:SetNeon(Value)
-            ColorPicker.Neon = Value;
-            Library[Idx .. 'Neon'] = Value;
+        function ColorPicker:SetRGBSpeed(Value)
+            ColorPicker.RGBSpeed = Value;
+            Library[Idx .. 'RGBSpeed'] = Value;
+        end
 
-            local Button = ContextMenu.Options['Neon'];
-            if Button then
-                Button.TextLabel.TextColor3 = Value and Library.AccentColor or Library.FontColor;
-                Library.RegistryMap[Button.TextLabel].Properties.TextColor3 = Value and 'AccentColor' or 'FontColor';
-            end
+        function ColorPicker:SetPulsarSpeed(Value)
+            ColorPicker.PulsarSpeed = Value;
+            Library[Idx .. 'PulsarSpeed'] = Value;
+        end
 
-            if Value then
-                ColorPicker:SetRGB(false)
-                ColorPicker:SetPulsar(false)
-            end
+        function ColorPicker:SetPulsarColor(Value)
+            ColorPicker.PulsarColor = Value;
+            Library[Idx .. 'PulsarColor'] = Value;
         end
 
         SatVibMap.InputBegan:Connect(function(Input)
@@ -3735,6 +3770,52 @@ end;
 
 Players.PlayerAdded:Connect(OnPlayerChange);
 Players.PlayerRemoving:Connect(OnPlayerChange);
+
+getgenv().Library = Library
+return Library
+function Library:UpdateCursor()
+    if not Library.CursorLabel then return end
+
+    Library.CursorLabel.Image = Library.CursorID
+    Library.CursorLabel.Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize)
+    
+    Library.CursorOutlineLabel.Visible = Library.CursorOutline
+    Library.CursorOutlineLabel.ImageColor3 = Library.CursorOutlineColor
+    Library.CursorOutlineLabel.Size = UDim2.fromOffset(Library.CursorSize + 2, Library.CursorSize + 2)
+end
+
+function Library:CreateCursor()
+    if Library.CursorLabel then Library.CursorLabel:Destroy() end
+
+    local CursorLabel = Library:Create('ImageLabel', {
+        Name = 'Cursor',
+        ZIndex = 100000,
+        BackgroundTransparency = 1,
+        Image = Library.CursorID,
+        Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Parent = Library.ScreenGui
+    })
+
+    local CursorOutlineLabel = Library:Create('ImageLabel', {
+        Name = 'Outline',
+        ZIndex = 99999,
+        BackgroundTransparency = 1,
+        Image = Library.CursorID,
+        ImageColor3 = Library.CursorOutlineColor,
+        Position = UDim2.fromOffset(-1, -1),
+        Size = UDim2.fromOffset(Library.CursorSize + 2, Library.CursorSize + 2),
+        Visible = Library.CursorOutline,
+        Parent = CursorLabel
+    })
+
+    Library.CursorLabel = CursorLabel
+    Library.CursorOutlineLabel = CursorOutlineLabel
+
+    Library:UpdateCursor()
+end
+
+Library:CreateCursor()
 
 getgenv().Library = Library
 return Library
