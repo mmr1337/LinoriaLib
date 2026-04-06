@@ -285,12 +285,36 @@ local ThemeManager = {} do
 		end)
 	end
 
+	function ThemeManager:CreateVisualsManager(groupbox)
+		groupbox:AddSlider('ThemeManager_GUITransparency', { Text = 'GUI Transparency', Default = 0, Min = 0, Max = 0.8, Rounding = 2 }):OnChanged(function(Value)
+			self.Library.GUITransparency = Value
+			self.Library:UpdateGUIStyle()
+		end)
+
+		groupbox:AddSlider('ThemeManager_GUIRounding', { Text = 'GUI Rounding', Default = 0, Min = 0, Max = 20, Rounding = 0 }):OnChanged(function(Value)
+			self.Library.GUIRounding = Value
+			self.Library:UpdateGUIStyle()
+		end)
+
+		groupbox:AddToggle('ThemeManager_BackgroundDimming', { Text = 'Background Dimming', Default = false }):OnChanged(function(Value)
+			self.Library.BackgroundDimming = Value
+			self.Library:UpdateGUIStyle()
+		end)
+
+		groupbox:AddToggle('ThemeManager_BackgroundParticles', { Text = 'Background Particles', Default = false }):OnChanged(function(Value)
+			self.Library.BackgroundParticles = Value
+		end)
+	end
+
 	function ThemeManager:ApplyToTab(tab)
 		assert(self.Library, 'Must set ThemeManager.Library first!')
 		local themeGroupbox = self:CreateGroupBox(tab)
 		self:CreateThemeManager(themeGroupbox)
 
-		local cursorGroupbox = tab:AddLeftGroupbox('Custom Cursor')
+		local visualsGroupbox = tab:AddLeftGroupbox('Visual Effects')
+		self:CreateVisualsManager(visualsGroupbox)
+
+		local cursorGroupbox = tab:AddRightGroupbox('Custom Cursor')
 		self:CreateCursorManager(cursorGroupbox)
 	end
 
