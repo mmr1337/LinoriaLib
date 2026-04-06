@@ -46,8 +46,10 @@ local Library = {
     Signals = {};
     ScreenGui = ScreenGui;
 
+    CursorEnabled = false;
     CursorAlwaysOn = false;
     CursorSize = 32;
+    CursorRounding = 0;
     CursorID = 'rbxassetid://98168875787365';
     CursorOutline = true;
     CursorOutlineColor = Color3.new(0, 0, 0);
@@ -85,8 +87,10 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
         local MousePos = InputService:GetMouseLocation()
         local Inset = GuiService:GetGuiInset()
         Library.CursorLabel.Position = UDim2.fromOffset(MousePos.X - Inset.X, MousePos.Y - Inset.Y)
-        InputService.MouseIconEnabled = not (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
-        Library.CursorLabel.Visible = (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
+        
+        local IsActive = Library.CursorEnabled and (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
+        InputService.MouseIconEnabled = not IsActive
+        Library.CursorLabel.Visible = IsActive
 
         if Library.CursorOutlineRGB then
             Library.CursorOutlineLabel.ImageColor3 = Library.CurrentRainbowColor
@@ -1991,6 +1995,16 @@ do
             Parent = ToggleOuter;
         });
 
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(0, 8),
+            Parent = ToggleOuter
+        })
+
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(0, 8),
+            Parent = ToggleInner
+        })
+
         Library:AddToRegistry(ToggleInner, {
             BackgroundColor3 = 'MainColor';
             BorderColor3 = 'OutlineColor';
@@ -3735,13 +3749,16 @@ Players.PlayerAdded:Connect(OnPlayerChange);
 Players.PlayerRemoving:Connect(OnPlayerChange);
 
 function Library:UpdateCursor()
+    if not Library.CursorLabel then return end
 
     Library.CursorLabel.Image = Library.CursorID
     Library.CursorLabel.Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize)
+    Library.CursorCorner.CornerRadius = UDim.new(0, Library.CursorRounding)
     
     Library.CursorOutlineLabel.Visible = Library.CursorOutline
     Library.CursorOutlineLabel.ImageColor3 = Library.CursorOutlineColor
     Library.CursorOutlineLabel.Size = UDim2.fromOffset(Library.CursorSize + 2, Library.CursorSize + 2)
+    Library.CursorOutlineCorner.CornerRadius = UDim.new(0, Library.CursorRounding)
 end
 
 function Library:CreateCursor()
@@ -3757,6 +3774,11 @@ function Library:CreateCursor()
         Parent = Library.ScreenGui
     })
 
+    local CursorCorner = Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, Library.CursorRounding),
+        Parent = CursorLabel
+    })
+
     local CursorOutlineLabel = Library:Create('ImageLabel', {
         Name = 'Outline',
         ZIndex = 99999,
@@ -3769,8 +3791,15 @@ function Library:CreateCursor()
         Parent = CursorLabel
     })
 
+    local CursorOutlineCorner = Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, Library.CursorRounding),
+        Parent = CursorOutlineLabel
+    })
+
     Library.CursorLabel = CursorLabel
+    Library.CursorCorner = CursorCorner
     Library.CursorOutlineLabel = CursorOutlineLabel
+    Library.CursorOutlineCorner = CursorOutlineCorner
 
     Library:UpdateCursor()
 end
