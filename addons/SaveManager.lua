@@ -36,11 +36,13 @@ local SaveManager = {} do
 		},
 		ColorPicker = {
 			Save = function(idx, object)
-				return { type = 'ColorPicker', idx = idx, value = object.Value:ToHex(), transparency = object.Transparency, rgb = object.RGB, pulsar = object.Pulsar, neon = object.Neon }
+				return { type = 'ColorPicker', idx = idx, value = object.Value:ToHex(), transparency = object.Transparency, rgb = object.RGB, pulsar = object.Pulsar, rgbSpeed = object.RGBSpeed, pulsarSpeed = object.PulsarSpeed }
 			end,
 			Load = function(idx, data)
 				if Options[idx] then 
-					Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency, data.rgb, data.pulsar, data.neon)
+					Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency, data.rgb, data.pulsar)
+					if data.rgbSpeed then Options[idx]:SetRGBSpeed(data.rgbSpeed) end
+					if data.pulsarSpeed then Options[idx]:SetPulsarSpeed(data.pulsarSpeed) end
 				end
 			end,
 		},
