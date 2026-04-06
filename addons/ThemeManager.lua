@@ -1,7 +1,8 @@
 local httpService = game:GetService('HttpService')
 local ThemeManager = {} do
 	ThemeManager.Folder = 'LinoriaLibSettings'
-	
+	-- if not isfolder(ThemeManager.Folder) then makefolder(ThemeManager.Folder) end
+
 	ThemeManager.Library = nil
 	ThemeManager.BuiltInThemes = {
 		['Default'] 		= { 1, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1c1c1c","AccentColor":"0055ff","BackgroundColor":"141414","OutlineColor":"323232"}') },
@@ -20,32 +21,36 @@ local ThemeManager = {} do
 
 		if not data then return end
 
+		-- custom themes are just regular dictionaries instead of an array with { index, dictionary }
+		local fields = { "FontColor", "MainColor", "AccentColor", "BackgroundColor", "OutlineColor" }
 		local scheme = data[2]
+
 		for idx, col in next, customThemeData or scheme do
-			self.Library[idx] = Color3.fromHex(col)
-			
-			if Options[idx] then
-				Options[idx]:SetValueRGB(Color3.fromHex(col))
+			if table.find(fields, idx) then
+				local rgb = (customThemeData or scheme)[idx .. '_RGB']
+				local pulsar = (customThemeData or scheme)[idx .. '_Pulsar']
+				local neon = (customThemeData or scheme)[idx .. '_Neon']
+
+				self.Library[idx] = Color3.fromHex(col)
+				
+				if Options[idx] then
+					Options[idx]:SetValueRGB(Color3.fromHex(col), Options[idx].Transparency, rgb, pulsar, neon)
+				end
 			end
 		end
-
-		-- Reset effects when applying theme
-		if Options.PulsarToggle then Options.PulsarToggle:SetValue(false) end
-		if Options.RGBToggle then Options.RGBToggle:SetValue(false) end
-		if Options.NeonToggle then Options.NeonToggle:SetValue(false) end
-		
-		self.Library.Theme.PulsarEnabled = false
-		self.Library.Theme.RGBEnabled = false
-		self.Library.Theme.NeonEnabled = false
 
 		self:ThemeUpdate()
 	end
 
 	function ThemeManager:ThemeUpdate()
+		-- This allows us to force apply themes without loading the themes tab :)
 		local options = { "FontColor", "MainColor", "AccentColor", "BackgroundColor", "OutlineColor" }
 		for i, field in next, options do
 			if Options and Options[field] then
 				self.Library[field] = Options[field].Value
+				self.Library[field .. 'RGB'] = Options[field].RGB
+				self.Library[field .. 'Pulsar'] = Options[field].Pulsar
+				self.Library[field .. 'Neon'] = Options[field].Neon
 			end
 		end
 
@@ -70,18 +75,13 @@ local ThemeManager = {} do
 		end
 
 		if isDefault then
-			if Options.ThemeManager_ThemeList then
-				Options.ThemeManager_ThemeList:SetValue(theme)
-			end
+			Options.ThemeManager_ThemeList:SetValue(theme)
 		else
 			self:ApplyTheme(theme)
 		end
 	end
 
 	function ThemeManager:SaveDefault(theme)
-		if not isfolder(self.Folder .. '/themes') then
-			makefolder(self.Folder .. '/themes')
-		end
 		writefile(self.Folder .. '/themes/default.txt', theme)
 	end
 
@@ -91,113 +91,6 @@ local ThemeManager = {} do
 		groupbox:AddLabel('Accent color'):AddColorPicker('AccentColor', { Default = self.Library.AccentColor });
 		groupbox:AddLabel('Outline color'):AddColorPicker('OutlineColor', { Default = self.Library.OutlineColor });
 		groupbox:AddLabel('Font color')	:AddColorPicker('FontColor', { Default = self.Library.FontColor });
-
-		-- Effects Section
-		groupbox:AddDivider()
-		groupbox:AddLabel('Visual Effects', true)
-		
-		-- Pulsar Effect
-		local PulsarToggle = groupbox:AddToggle('PulsarToggle', {
-			Text = 'Pulsar Effect',
-			Default = false,
-			Callback = function(Value)
-				self.Library.Theme.PulsarEnabled = Value
-				if Value then
-					if Options.RGBToggle then Options.RGBToggle:SetValue(false) end
-					if Options.NeonToggle then Options.NeonToggle:SetValue(false) end
-					self.Library.Theme.RGBEnabled = false
-					self.Library.Theme.NeonEnabled = false
-				else
-					self.Library.AccentColor = Options.AccentColor.Value
-					self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
-					self.Library:UpdateColorsUsingRegistry()
-				end
-			end
-		})
-		
-		groupbox:AddSlider('PulsarSpeed', {
-			Text = 'Pulsar Speed',
-			Default = 1,
-			Min = 0.5,
-			Max = 3,
-			Rounding = 1,
-			Callback = function(Value)
-				self.Library.Theme.PulsarSpeed = Value
-			end
-		})
-		
-		-- RGB Effect
-		local RGBToggle = groupbox:AddToggle('RGBToggle', {
-			Text = 'RGB Effect',
-			Default = false,
-			Callback = function(Value)
-				self.Library.Theme.RGBEnabled = Value
-				if Value then
-					if Options.PulsarToggle then Options.PulsarToggle:SetValue(false) end
-					if Options.NeonToggle then Options.NeonToggle:SetValue(false) end
-					self.Library.Theme.PulsarEnabled = false
-					self.Library.Theme.NeonEnabled = false
-				else
-					self.Library.AccentColor = Options.AccentColor.Value
-					self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
-					self.Library:UpdateColorsUsingRegistry()
-				end
-			end
-		})
-		
-		groupbox:AddSlider('RGBSpeed', {
-			Text = 'RGB Speed',
-			Default = 1,
-			Min = 0.5,
-			Max = 5,
-			Rounding = 1,
-			Callback = function(Value)
-				self.Library.Theme.RGBSpeed = Value
-			end
-		})
-		
-		-- Neon Effect
-		local NeonToggle = groupbox:AddToggle('NeonToggle', {
-			Text = 'Neon Effect',
-			Default = false,
-			Callback = function(Value)
-				self.Library.Theme.NeonEnabled = Value
-				if Value then
-					if Options.PulsarToggle then Options.PulsarToggle:SetValue(false) end
-					if Options.RGBToggle then Options.RGBToggle:SetValue(false) end
-					self.Library.Theme.PulsarEnabled = false
-					self.Library.Theme.RGBEnabled = false
-				else
-					self.Library.AccentColor = Options.AccentColor.Value
-					self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
-					self.Library:UpdateColorsUsingRegistry()
-				end
-			end
-		})
-		
-		groupbox:AddSlider('NeonIntensity', {
-			Text = 'Neon Intensity',
-			Default = 0.5,
-			Min = 0.1,
-			Max = 1,
-			Rounding = 1,
-			Callback = function(Value)
-				self.Library.Theme.NeonIntensity = Value
-			end
-		})
-		
-		groupbox:AddButton('Reset Effects', function()
-			if Options.PulsarToggle then Options.PulsarToggle:SetValue(false) end
-			if Options.RGBToggle then Options.RGBToggle:SetValue(false) end
-			if Options.NeonToggle then Options.NeonToggle:SetValue(false) end
-			self.Library.Theme.PulsarEnabled = false
-			self.Library.Theme.RGBEnabled = false
-			self.Library.Theme.NeonEnabled = false
-			self.Library.AccentColor = Options.AccentColor.Value
-			self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor)
-			self.Library:UpdateColorsUsingRegistry()
-			self.Library:Notify('All effects disabled!', 2)
-		end)
 
 		local ThemesArray = {}
 		for Name, Theme in next, self.BuiltInThemes do
@@ -210,17 +103,13 @@ local ThemeManager = {} do
 		groupbox:AddDropdown('ThemeManager_ThemeList', { Text = 'Theme list', Values = ThemesArray, Default = 1 })
 
 		groupbox:AddButton('Set as default', function()
-			if Options.ThemeManager_ThemeList and Options.ThemeManager_ThemeList.Value then
-				self:SaveDefault(Options.ThemeManager_ThemeList.Value)
-				self.Library:Notify(string.format('Set default theme to %q', Options.ThemeManager_ThemeList.Value))
-			end
+			self:SaveDefault(Options.ThemeManager_ThemeList.Value)
+			self.Library:Notify(string.format('Set default theme to %q', Options.ThemeManager_ThemeList.Value))
 		end)
 
-		if Options.ThemeManager_ThemeList then
-			Options.ThemeManager_ThemeList:OnChanged(function()
-				self:ApplyTheme(Options.ThemeManager_ThemeList.Value)
-			end)
-		end
+		Options.ThemeManager_ThemeList:OnChanged(function()
+			self:ApplyTheme(Options.ThemeManager_ThemeList.Value)
+		end)
 
 		groupbox:AddDivider()
 		groupbox:AddInput('ThemeManager_CustomThemeName', { Text = 'Custom theme name' })
@@ -228,28 +117,21 @@ local ThemeManager = {} do
 		groupbox:AddDivider()
 		
 		groupbox:AddButton('Save theme', function() 
-			if Options.ThemeManager_CustomThemeName and Options.ThemeManager_CustomThemeName.Value then
-				self:SaveCustomTheme(Options.ThemeManager_CustomThemeName.Value)
-				if Options.ThemeManager_CustomThemeList then
-					Options.ThemeManager_CustomThemeList:SetValues(self:ReloadCustomThemes())
-					Options.ThemeManager_CustomThemeList:SetValue(nil)
-				end
-			end
+			self:SaveCustomTheme(Options.ThemeManager_CustomThemeName.Value)
+
+			Options.ThemeManager_CustomThemeList:SetValues(self:ReloadCustomThemes())
+			Options.ThemeManager_CustomThemeList:SetValue(nil)
 		end):AddButton('Load theme', function() 
-			if Options.ThemeManager_CustomThemeList and Options.ThemeManager_CustomThemeList.Value then
-				self:ApplyTheme(Options.ThemeManager_CustomThemeList.Value) 
-			end
+			self:ApplyTheme(Options.ThemeManager_CustomThemeList.Value) 
 		end)
 
 		groupbox:AddButton('Refresh list', function()
-			if Options.ThemeManager_CustomThemeList then
-				Options.ThemeManager_CustomThemeList:SetValues(self:ReloadCustomThemes())
-				Options.ThemeManager_CustomThemeList:SetValue(nil)
-			end
+			Options.ThemeManager_CustomThemeList:SetValues(self:ReloadCustomThemes())
+			Options.ThemeManager_CustomThemeList:SetValue(nil)
 		end)
 
 		groupbox:AddButton('Set as default', function()
-			if Options.ThemeManager_CustomThemeList and Options.ThemeManager_CustomThemeList.Value and Options.ThemeManager_CustomThemeList.Value ~= '' then
+			if Options.ThemeManager_CustomThemeList.Value ~= nil and Options.ThemeManager_CustomThemeList.Value ~= '' then
 				self:SaveDefault(Options.ThemeManager_CustomThemeList.Value)
 				self.Library:Notify(string.format('Set default theme to %q', Options.ThemeManager_CustomThemeList.Value))
 			end
@@ -261,11 +143,11 @@ local ThemeManager = {} do
 			self:ThemeUpdate()
 		end
 
-		if Options.BackgroundColor then Options.BackgroundColor:OnChanged(UpdateTheme) end
-		if Options.MainColor then Options.MainColor:OnChanged(UpdateTheme) end
-		if Options.AccentColor then Options.AccentColor:OnChanged(UpdateTheme) end
-		if Options.OutlineColor then Options.OutlineColor:OnChanged(UpdateTheme) end
-		if Options.FontColor then Options.FontColor:OnChanged(UpdateTheme) end
+		Options.BackgroundColor:OnChanged(UpdateTheme)
+		Options.MainColor:OnChanged(UpdateTheme)
+		Options.AccentColor:OnChanged(UpdateTheme)
+		Options.OutlineColor:OnChanged(UpdateTheme)
+		Options.FontColor:OnChanged(UpdateTheme)
 	end
 
 	function ThemeManager:GetCustomTheme(file)
@@ -293,30 +175,24 @@ local ThemeManager = {} do
 		local fields = { "FontColor", "MainColor", "AccentColor", "BackgroundColor", "OutlineColor" }
 
 		for _, field in next, fields do
-			if Options[field] then
-				theme[field] = Options[field].Value:ToHex()
-			end
+			theme[field] = Options[field].Value:ToHex()
+			theme[field .. '_RGB'] = Options[field].RGB
+			theme[field .. '_Pulsar'] = Options[field].Pulsar
+			theme[field .. '_Neon'] = Options[field].Neon
 		end
 
-		if not isfolder(self.Folder .. '/themes') then
-			makefolder(self.Folder .. '/themes')
-		end
 		writefile(self.Folder .. '/themes/' .. file .. '.json', httpService:JSONEncode(theme))
 	end
 
 	function ThemeManager:ReloadCustomThemes()
-		local themesPath = self.Folder .. '/themes'
-		if not isfolder(themesPath) then
-			makefolder(themesPath)
-			return {}
-		end
-		
-		local list = listfiles(themesPath)
+		local list = listfiles(self.Folder .. '/themes')
 
 		local out = {}
 		for i = 1, #list do
 			local file = list[i]
 			if file:sub(-5) == '.json' then
+				-- i hate this but it has to be done ...
+
 				local pos = file:find('.json', 1, true)
 				local char = file:sub(pos, pos)
 
@@ -341,14 +217,12 @@ local ThemeManager = {} do
 	function ThemeManager:BuildFolderTree()
 		local paths = {}
 
-		local parts = {}
-		for part in string.gmatch(self.Folder, "[^/\\]+") do
-			table.insert(parts, part)
-		end
-		
+		-- build the entire tree if a path is like some-hub/phantom-forces
+		-- makefolder builds the entire tree on Synapse X but not other exploits
+
+		local parts = self.Folder:split('/')
 		for idx = 1, #parts do
-			local path = table.concat(parts, '/', 1, idx)
-			table.insert(paths, path)
+			paths[#paths + 1] = table.concat(parts, '/', 1, idx)
 		end
 
 		table.insert(paths, self.Folder .. '/themes')
@@ -357,10 +231,7 @@ local ThemeManager = {} do
 		for i = 1, #paths do
 			local str = paths[i]
 			if not isfolder(str) then
-				local success, err = pcall(makefolder, str)
-				if not success then
-					warn('Failed to create folder:', str, err)
-				end
+				makefolder(str)
 			end
 		end
 	end
