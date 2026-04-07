@@ -12,18 +12,22 @@ local GuiService = game:GetService('GuiService');
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
--- Main ScreenGui: no IgnoreGuiInset so Mouse.X/Y and AbsolutePosition match (original behavior)
-local ScreenGui = Instance.new('ScreenGui');
-ProtectGui(ScreenGui);
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.Parent = CoreGui;
-
--- OverlayGui: IgnoreGuiInset=true so Dimmer and SplashScreen cover full screen including top bar
+-- OverlayGui: IgnoreGuiInset=true so Dimmer and SplashScreen cover full screen.
+-- DisplayOrder=-1 makes it render BEHIND ScreenGui, so it doesn't overlay the main GUI.
 local OverlayGui = Instance.new('ScreenGui');
 ProtectGui(OverlayGui);
 OverlayGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 OverlayGui.IgnoreGuiInset = true;
+OverlayGui.DisplayOrder = -1;
 OverlayGui.Parent = CoreGui;
+
+-- Main ScreenGui: no IgnoreGuiInset so Mouse.X/Y and AbsolutePosition match (original behavior).
+-- DisplayOrder=0 (default) renders on top of OverlayGui.
+local ScreenGui = Instance.new('ScreenGui');
+ProtectGui(ScreenGui);
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
+ScreenGui.DisplayOrder = 0;
+ScreenGui.Parent = CoreGui;
 
 local Toggles = {};
 local Options = {};
@@ -3229,8 +3233,8 @@ function Library:CreateWindow(...)
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
         Visible = false,
-        ZIndex = 0,   -- ZIndex=0 renders behind all GUI elements (ZIndex 1+)
-        Parent = ScreenGui
+        ZIndex = 1,
+        Parent = OverlayGui   -- OverlayGui has IgnoreGuiInset=true (full screen) and DisplayOrder=-1 (behind main GUI)
     })
 
     Library.Dimmer = Dimmer
@@ -3911,7 +3915,7 @@ function Library:SplashAnimation()
         BorderSizePixel = 0;
         Size = UDim2.fromScale(1, 1);
         ZIndex = 200;
-        Parent = ScreenGui;
+        Parent = OverlayGui;  -- full-screen via IgnoreGuiInset=true
     });
 
     local SplashLabel = Library:CreateLabel({
