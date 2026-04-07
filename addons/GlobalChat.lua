@@ -26,7 +26,8 @@ GlobalChat.BubbleDisplayTime = 10   -- seconds a 3D bubble stays visible
 -- ──────────────────────────────────────────────────────────────────────────────
 
 -- State
-GlobalChat.Library    = nil
+GlobalChat.Library     = nil
+GlobalChat.ScreenGui   = nil
 GlobalChat.ChatWindow = nil
 GlobalChat.Enabled    = false
 
@@ -229,7 +230,23 @@ end
 function GlobalChat:CreateWindow()
     local L  = self.Library
     if not L then return end
-    local SG = L.ScreenGui
+
+    -- Create dedicated ScreenGui for Chat
+    if not self.ScreenGui then
+        local SG = Instance.new('ScreenGui')
+        SG.Name = 'GlobalChatGui'
+        SG.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        SG.DisplayOrder = 10 -- Higher than main GUI (0) and Overlay (-1)
+        SG.ResetOnSpawn = false
+        
+        -- Protect it if possible
+        if syn and syn.protect_gui then syn.protect_gui(SG) end
+        SG.Parent = game:GetService('CoreGui')
+        
+        self.ScreenGui = SG
+    end
+
+    local SG = self.ScreenGui
 
     -- Outer
     local Outer = L:Create('Frame', {
