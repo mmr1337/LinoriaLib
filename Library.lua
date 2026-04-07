@@ -460,7 +460,7 @@ function Library:UpdateBackgroundParticles(Delta)
 
     -- Configuration Constants
     local PARTICLE_IMAGE = "rbxassetid://102363172612598"
-    local MIN_SIZE, MAX_SIZE = 3, 15
+    local MIN_SIZE, MAX_SIZE = 3, 30
     local PARTICLE_COUNT = 80
     local MIN_SPEED, MAX_SPEED = 40, 80
     local MIN_ROT_SPEED, MAX_ROT_SPEED = 40, 80
