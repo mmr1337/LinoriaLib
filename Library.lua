@@ -3949,10 +3949,77 @@ function Library:CreateCursor()
     Library:UpdateCursor()
 end
 
-Library:CreateCursor()
+function Library:SplashAnimation()
+    local SplashOuter = Library:Create('Frame', {
+        BackgroundColor3 = Color3.fromRGB(15, 15, 15);
+        BackgroundTransparency = 0;
+        BorderSizePixel = 0;
+        Size = UDim2.fromScale(1, 1);
+        ZIndex = 200;
+        Parent = ScreenGui;
+    });
 
-getgenv().Library = Library
-return Library
+    local SplashLabel = Library:CreateLabel({
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.45),
+        Size = UDim2.fromOffset(200, 50),
+        Text = 'LinoriaLib',
+        TextSize = 40,
+        Font = Enum.Font.Code,
+        ZIndex = 201,
+        Parent = SplashOuter,
+    });
+
+    local ProgressBack = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.5, 0.55),
+        Size = UDim2.fromOffset(200, 4),
+        ZIndex = 201,
+        Parent = SplashOuter,
+    });
+
+    local ProgressBar = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(0, 1),
+        ZIndex = 202,
+        Parent = ProgressBack,
+    });
+
+    Library:AddToRegistry(ProgressBar, {
+        BackgroundColor3 = 'AccentColor';
+    });
+
+    local FadeTime = 0.5
+    
+    SplashOuter.BackgroundTransparency = 1
+    SplashLabel.TextTransparency = 1
+    ProgressBar.BackgroundTransparency = 1
+    ProgressBack.BackgroundTransparency = 1
+
+    TweenService:Create(SplashOuter, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
+    TweenService:Create(SplashLabel, TweenInfo.new(FadeTime), { TextTransparency = 0 }):Play()
+    TweenService:Create(ProgressBar, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
+    TweenService:Create(ProgressBack, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
+
+    task.wait(FadeTime + 0.2)
+
+    TweenService:Create(ProgressBar, TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.fromScale(1, 1) }):Play()
+    
+    task.wait(1.7)
+
+    TweenService:Create(SplashOuter, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(SplashLabel, TweenInfo.new(FadeTime), { TextTransparency = 1 }):Play()
+    TweenService:Create(ProgressBar, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(ProgressBack, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
+
+    task.wait(FadeTime)
+    SplashOuter:Destroy()
+end
+
+Library:CreateCursor()
 
 task.spawn(function() Library:SplashAnimation() end)
 
