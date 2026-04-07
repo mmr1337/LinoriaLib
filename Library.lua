@@ -3229,8 +3229,8 @@ function Library:CreateWindow(...)
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
         Visible = false,
-        ZIndex = 0,
-        Parent = OverlayGui
+        ZIndex = 0,   -- ZIndex=0 renders behind all GUI elements (ZIndex 1+)
+        Parent = ScreenGui
     })
 
     Library.Dimmer = Dimmer
