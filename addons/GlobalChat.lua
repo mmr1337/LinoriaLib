@@ -190,12 +190,6 @@ function GlobalChat:SendMessage(message)
             })
         end)
         if ok then Create3DBubble(LP, message, data.timestamp) end
-        if self.StatusLabel then
-            self.StatusLabel.Text = ok and 'Sent!' or 'Failed to send'
-            task.delay(2, function()
-                if self.StatusLabel then self.StatusLabel.Text = 'Global Chat · Connected' end
-            end)
-        end
     end)
 end
 
@@ -228,8 +222,6 @@ function GlobalChat:FetchAndUpdate()
             end
         end
     end
-
-    if self.StatusLabel then self.StatusLabel.Text = 'Global Chat · Connected' end
 end
 
 -- ─── Chat Window ─────────────────────────────────────────────────────────────
@@ -384,23 +376,11 @@ function GlobalChat:CreateWindow()
     })
     L:AddToRegistry(SendBtn, { BackgroundColor3 = 'AccentColor', BorderColor3 = 'AccentColorDark' })
 
-    -- Status bar
-    local Status = L:CreateLabel({
-        Position       = UDim2.new(0, 8, 1, -17),
-        Size           = UDim2.new(1, -16, 0, 13),
-        Text           = request and 'Connecting...' or 'HTTP not available',
-        TextSize       = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex         = 2,
-        Parent         = Inner,
-    })
-
     -- Save refs
     self.ChatWindow  = Outer
     self.ScrollFrame = SF
     self.TextBox     = TB
     self.SendButton  = SendBtn
-    self.StatusLabel = Status
 
     -- Send logic
     local function doSend()
