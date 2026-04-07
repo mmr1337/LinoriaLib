@@ -47,16 +47,6 @@ local Library = {
     Signals = {};
     ScreenGui = ScreenGui;
 
-    CursorEnabled = false;
-    CursorAlwaysOn = false;
-    CursorSize = 32;
-    CursorRounding = 0;
-    CursorID = 'rbxassetid://98168875787365';
-    CursorOutline = true;
-    CursorOutlineColor = Color3.new(0, 0, 0);
-    CursorOutlineRGB = false;
-
-    GUITransparency = 0;
     GUIRounding = 0;
     BackgroundDimming = false;
     BackgroundParticles = false;
@@ -94,17 +84,7 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
         Library.CurrentPulsarValue = (math.sin(tick() * 5) + 1) / 2
     end
 
-    if Library.CursorLabel then
-        local MousePos = InputService:GetMouseLocation()
-        local Inset = GuiService:GetGuiInset()
-        Library.CursorLabel.Position = UDim2.fromOffset(MousePos.X - Inset.X, MousePos.Y - Inset.Y)
-        
-        local IsActive = Library.CursorEnabled and (Library.CursorAlwaysOn or Library.ScreenGui.Enabled)
-        InputService.MouseIconEnabled = not IsActive
-        Library.CursorLabel.Visible = IsActive
-
-        if Library.CursorOutlineRGB then
-            Library.CursorOutlineLabel.ImageColor3 = Library.CurrentRainbowColor
+            Library.Dimmer.Visible = false
         end
     end
 
@@ -435,16 +415,7 @@ function Library:UpdateColorsUsingRegistry()
 end;
 
 function Library:UpdateGUIStyle()
-    local Transparency = Library.GUITransparency
     local Rounding = Library.GUIRounding
-
-    for _, Object in next, Library.Registry do
-        local Instance = Object.Instance
-        
-        if Instance:IsA('Frame') or Instance:IsA('ScrollingFrame') then
-            Instance.BackgroundTransparency = math.min(Transparency, 0.8)
-        end
-    end
 
     -- Recursive rounding for all descendants to avoid sharp corners
     for _, Desc in next, Library.ScreenGui:GetDescendants() do
@@ -458,8 +429,9 @@ function Library:UpdateBackgroundParticles(Delta)
     if not Library.BackgroundParticles then
         if #Library.Particles > 0 then
             for _, Particle in next, Library.Particles do
-                Particle.Instance.Visible = false
+                Particle.frame:Destroy()
             end
+            Library.Particles = {}
         end
         return
     end
@@ -467,39 +439,80 @@ function Library:UpdateBackgroundParticles(Delta)
     local ScreenSize = ScreenGui.AbsoluteSize
     if ScreenSize.X == 0 then return end
 
+    -- Configuration Constants
+    local PARTICLE_IMAGE = "rbxassetid://98168875787365"
+    local MIN_SIZE, MAX_SIZE = 3, 15
+    local PARTICLE_COUNT = 80
+    local MIN_SPEED, MAX_SPEED = 40, 80
+    local MIN_ROT_SPEED, MAX_ROT_SPEED = 40, 80
+
+    -- Initialize particles if they don't exist
     if #Library.Particles == 0 then
-        for i = 1, 40 do
-            local Particle = Library:Create('ImageLabel', {
+        for i = 1, PARTICLE_COUNT do
+            local size = math.random(MIN_SIZE, MAX_SIZE)
+            local frame = Library:Create('Frame', {
                 Name = 'Particle',
+                Size = UDim2.fromOffset(size, size),
+                Position = UDim2.fromOffset(math.random(0, ScreenSize.X), math.random(0, ScreenSize.Y)),
                 BackgroundTransparency = 1,
-                Image = 'rbxassetid://111966666985958',
-                ImageTransparency = 0.5 + (math.random() * 0.4),
-                Size = UDim2.fromOffset(2, 2),
-                Position = UDim2.fromScale(math.random(), math.random()),
+                BorderSizePixel = 0,
                 ZIndex = 0,
                 Parent = ScreenGui,
             })
+
+            local image = Library:Create('ImageLabel', {
+                Name = 'Image',
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                Image = PARTICLE_IMAGE,
+                ImageTransparency = math.random(30, 60) / 100,
+                Parent = frame,
+            })
+
+            Library:Create('UICorner', { CornerRadius = UDim.new(1, 0), Parent = frame })
+            Library:Create('UICorner', { CornerRadius = UDim.new(1, 0), Parent = image })
+
+            local angle = math.random() * math.pi * 2
+            local speed = math.random(MIN_SPEED, MAX_SPEED)
             
             table.insert(Library.Particles, {
-                Instance = Particle,
-                Velocity = Vector2.new((math.random() - 0.5) * 0.05, -0.05 - (math.random() * 0.1)),
-                RotationSpeed = (math.random() - 0.5) * 2
+                frame = frame,
+                velocityX = math.cos(angle) * speed,
+                velocityY = math.sin(angle) * speed,
+                rotationSpeed = math.random(MIN_ROT_SPEED, MAX_ROT_SPEED) * (math.random(0, 1) == 0 and 1 or -1),
+                currentRotation = 0,
+                posX = frame.Position.X.Offset,
+                posY = frame.Position.Y.Offset
             })
         end
     end
 
-    for _, Particle in next, Library.Particles do
-        Particle.Instance.Visible = true
-        
-        local CurrentPos = Particle.Instance.Position
-        local NewX = CurrentPos.X.Scale + (Particle.Velocity.X * Delta)
-        local NewY = CurrentPos.Y.Scale + (Particle.Velocity.Y * Delta)
+    -- Update particles
+    for _, data in next, Library.Particles do
+        local frame = data.frame
+        if frame and frame.Parent then
+            data.posX = data.posX + (data.velocityX * Delta)
+            data.posY = data.posY + (data.velocityY * Delta)
 
-        if NewX < 0 then NewX = 1 elseif NewX > 1 then NewX = 0 end
-        if NewY < 0 then NewY = 1 elseif NewY > 1 then NewY = 0 end
+            local pSize = frame.Size.X.Offset
+            if data.posX < 0 then
+                data.posX = 0; data.velocityX = math.abs(data.velocityX)
+            elseif data.posX > ScreenSize.X - pSize then
+                data.posX = ScreenSize.X - pSize; data.velocityX = -math.abs(data.velocityX)
+            end
 
-        Particle.Instance.Position = UDim2.fromScale(NewX, NewY)
-        Particle.Instance.Rotation = Particle.Instance.Rotation + (Particle.RotationSpeed * Delta)
+            if data.posY < 0 then
+                data.posY = 0; data.velocityY = math.abs(data.velocityY)
+            elseif data.posY > ScreenSize.Y - pSize then
+                data.posY = ScreenSize.Y - pSize; data.velocityY = -math.abs(data.velocityY)
+            end
+
+            frame.Position = UDim2.fromOffset(data.posX, data.posY)
+            data.currentRotation = (data.currentRotation + (data.rotationSpeed * Delta)) % 360
+            
+            local img = frame:FindFirstChild("Image")
+            if img then img.Rotation = data.currentRotation end
+        end
     end
 end
 
@@ -3766,28 +3779,6 @@ function Library:CreateWindow(...)
         Parent = ScreenGui;
     });
 
-    local TransparencyCache = {};
-    local Toggled = false;
-    local Fading = false;
-
-    local function UpdateTransparencyCache()
-        TransparencyCache = {}
-        for _, Desc in next, Outer:GetDescendants() do
-            if Desc:IsA('Frame') or Desc:IsA('TextLabel') or Desc:IsA('ImageLabel') or Desc:IsA('ScrollingFrame') or Desc:IsA('TextBox') then
-                local Cache = {}
-                if Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') or Desc:IsA('TextBox') then
-                    Cache.BackgroundTransparency = Desc.BackgroundTransparency
-                end
-                if Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
-                    Cache.TextTransparency = Desc.TextTransparency
-                end
-                if Desc:IsA('ImageLabel') then
-                    Cache.ImageTransparency = Desc.ImageTransparency
-                end
-                TransparencyCache[Desc] = Cache
-            end
-        end
-    end
 
     function Library:Toggle()
         if Fading then
@@ -3814,17 +3805,6 @@ function Library:CreateWindow(...)
         end
 
         Library:UpdateGUIStyle()
-
-        if Toggled and next(TransparencyCache) == nil then
-            UpdateTransparencyCache()
-        end
-
-        for Desc, Cache in next, TransparencyCache do
-            for Prop, OriginalValue in next, Cache do
-                local TargetTransparency = Toggled and math.max(OriginalValue, Library.GUITransparency) or 1
-                TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [Prop] = TargetTransparency }):Play();
-            end;
-        end;
 
         TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
             Size = UDim2.new(Config.Size.X.Scale * TargetScale, Config.Size.X.Offset * TargetScale, Config.Size.Y.Scale * TargetScale, Config.Size.Y.Offset * TargetScale)
@@ -3871,135 +3851,6 @@ end;
 
 Players.PlayerAdded:Connect(OnPlayerChange);
 Players.PlayerRemoving:Connect(OnPlayerChange);
-
-function Library:UpdateCursor()
-    if not Library.CursorLabel then return end
-
-    Library.CursorLabel.Image = Library.CursorID
-    Library.CursorLabel.Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize)
-    Library.CursorCorner.CornerRadius = UDim.new(0, Library.CursorRounding)
-    
-    Library.CursorOutlineLabel.Visible = Library.CursorOutline
-    Library.CursorOutlineLabel.ImageColor3 = Library.CursorOutlineColor
-    Library.CursorOutlineLabel.Size = UDim2.fromOffset(Library.CursorSize + 2, Library.CursorSize + 2)
-    Library.CursorOutlineCorner.CornerRadius = UDim.new(0, Library.CursorRounding)
-end
-
-function Library:CreateCursor()
-
-    if Library.CursorLabel then Library.CursorLabel:Destroy() end
-
-    local CursorLabel = Library:Create('ImageLabel', {
-        Name = 'Cursor',
-        ZIndex = 100000,
-        BackgroundTransparency = 1,
-        Image = Library.CursorID,
-        Size = UDim2.fromOffset(Library.CursorSize, Library.CursorSize),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Parent = Library.ScreenGui
-    })
-
-    local CursorCorner = Library:Create('UICorner', {
-        CornerRadius = UDim.new(0, Library.CursorRounding),
-        Parent = CursorLabel
-    })
-
-    local CursorOutlineLabel = Library:Create('ImageLabel', {
-        Name = 'Outline',
-        ZIndex = 99999,
-        BackgroundTransparency = 1,
-        Image = Library.CursorID,
-        ImageColor3 = Library.CursorOutlineColor,
-        Position = UDim2.fromOffset(-1, -1),
-        Size = UDim2.fromOffset(Library.CursorSize + 2, Library.CursorSize + 2),
-        Visible = Library.CursorOutline,
-        Parent = CursorLabel
-    })
-
-    local CursorOutlineCorner = Library:Create('UICorner', {
-        CornerRadius = UDim.new(0, Library.CursorRounding),
-        Parent = CursorOutlineLabel
-    })
-
-    Library.CursorLabel = CursorLabel
-    Library.CursorCorner = CursorCorner
-    Library.CursorOutlineLabel = CursorOutlineLabel
-    Library.CursorOutlineCorner = CursorOutlineCorner
-
-    Library:UpdateCursor()
-end
-
-function Library:SplashAnimation()
-    local SplashOuter = Library:Create('Frame', {
-        BackgroundColor3 = Color3.fromRGB(15, 15, 15);
-        BackgroundTransparency = 0;
-        BorderSizePixel = 0;
-        Size = UDim2.fromScale(1, 1);
-        ZIndex = 200;
-        Parent = ScreenGui;
-    });
-
-    local SplashLabel = Library:CreateLabel({
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.45),
-        Size = UDim2.fromOffset(200, 50),
-        Text = 'LinoriaLib',
-        TextSize = 40,
-        Font = Enum.Font.Code,
-        ZIndex = 201,
-        Parent = SplashOuter,
-    });
-
-    local ProgressBack = Library:Create('Frame', {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
-        BorderSizePixel = 0,
-        Position = UDim2.fromScale(0.5, 0.55),
-        Size = UDim2.fromOffset(200, 4),
-        ZIndex = 201,
-        Parent = SplashOuter,
-    });
-
-    local ProgressBar = Library:Create('Frame', {
-        BackgroundColor3 = Library.AccentColor,
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(0, 1),
-        ZIndex = 202,
-        Parent = ProgressBack,
-    });
-
-    Library:AddToRegistry(ProgressBar, {
-        BackgroundColor3 = 'AccentColor';
-    });
-
-    local FadeTime = 0.5
-    
-    SplashOuter.BackgroundTransparency = 1
-    SplashLabel.TextTransparency = 1
-    ProgressBar.BackgroundTransparency = 1
-    ProgressBack.BackgroundTransparency = 1
-
-    TweenService:Create(SplashOuter, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
-    TweenService:Create(SplashLabel, TweenInfo.new(FadeTime), { TextTransparency = 0 }):Play()
-    TweenService:Create(ProgressBar, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
-    TweenService:Create(ProgressBack, TweenInfo.new(FadeTime), { BackgroundTransparency = 0 }):Play()
-
-    task.wait(FadeTime + 0.2)
-
-    TweenService:Create(ProgressBar, TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.fromScale(1, 1) }):Play()
-    
-    task.wait(1.7)
-
-    TweenService:Create(SplashOuter, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(SplashLabel, TweenInfo.new(FadeTime), { TextTransparency = 1 }):Play()
-    TweenService:Create(ProgressBar, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(ProgressBack, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play()
-
-    task.wait(FadeTime)
-    SplashOuter:Destroy()
-end
-
-Library:CreateCursor()
 
 task.spawn(function() Library:SplashAnimation() end)
 
