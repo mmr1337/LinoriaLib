@@ -70,6 +70,10 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
     RainbowStep = RainbowStep + Delta
     PulsarStep = PulsarStep + Delta
 
+    if Library.UpdateBackgroundParticles then
+        Library:UpdateBackgroundParticles(Delta)
+    end
+
     if RainbowStep >= (1 / 60) then
         RainbowStep = 0
 
@@ -544,6 +548,74 @@ function Library:UpdateColorsUsingRegistry()
         end;
     end;
 end;
+
+function Library:UpdateGUIStyle()
+    local Transparency = Library.GUITransparency
+    local Rounding = Library.GUIRounding
+
+    for _, Object in next, Library.Registry do
+        local Instance = Object.Instance
+        
+        if Instance:IsA('Frame') or Instance:IsA('ScrollingFrame') then
+            Instance.BackgroundTransparency = math.min(Transparency, 0.8)
+        end
+
+        for _, Child in next, Instance:GetChildren() do
+            if Child:IsA('UICorner') then
+                Child.CornerRadius = UDim.new(0, Rounding)
+            end
+        end
+    end
+end
+
+function Library:UpdateBackgroundParticles(Delta)
+    if not Library.BackgroundParticles then
+        if #Library.Particles > 0 then
+            for _, Particle in next, Library.Particles do
+                Particle.Instance.Visible = false
+            end
+        end
+        return
+    end
+
+    local ScreenSize = ScreenGui.AbsoluteSize
+    if ScreenSize.X == 0 then return end
+
+    if #Library.Particles == 0 then
+        for i = 1, 40 do
+            local Particle = Library:Create('ImageLabel', {
+                Name = 'Particle',
+                BackgroundTransparency = 1,
+                Image = 'rbxassetid://111966666985958',
+                ImageTransparency = 0.5 + (math.random() * 0.4),
+                Size = UDim2.fromOffset(2, 2),
+                Position = UDim2.fromScale(math.random(), math.random()),
+                ZIndex = 0,
+                Parent = ScreenGui,
+            })
+            
+            table.insert(Library.Particles, {
+                Instance = Particle,
+                Velocity = Vector2.new((math.random() - 0.5) * 0.05, -0.05 - (math.random() * 0.1)),
+                RotationSpeed = (math.random() - 0.5) * 2
+            })
+        end
+    end
+
+    for _, Particle in next, Library.Particles do
+        Particle.Instance.Visible = true
+        
+        local CurrentPos = Particle.Instance.Position
+        local NewX = CurrentPos.X.Scale + (Particle.Velocity.X * Delta)
+        local NewY = CurrentPos.Y.Scale + (Particle.Velocity.Y * Delta)
+
+        if NewX < 0 then NewX = 1 elseif NewX > 1 then NewX = 0 end
+        if NewY < 0 then NewY = 1 elseif NewY > 1 then NewY = 0 end
+
+        Particle.Instance.Position = UDim2.fromScale(NewX, NewY)
+        Particle.Instance.Rotation = Particle.Instance.Rotation + (Particle.RotationSpeed * Delta)
+    end
+end
 
 function Library:GiveSignal(Signal)
     -- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
@@ -3812,6 +3884,25 @@ function Library:CreateWindow(...)
     local Toggled = false;
     local Fading = false;
 
+    local function UpdateTransparencyCache()
+        TransparencyCache = {}
+        for _, Desc in next, Outer:GetDescendants() do
+            if Desc:IsA('Frame') or Desc:IsA('TextLabel') or Desc:IsA('ImageLabel') or Desc:IsA('ScrollingFrame') or Desc:IsA('TextBox') then
+                local Cache = {}
+                if Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') or Desc:IsA('TextBox') then
+                    Cache.BackgroundTransparency = Desc.BackgroundTransparency
+                end
+                if Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
+                    Cache.TextTransparency = Desc.TextTransparency
+                end
+                if Desc:IsA('ImageLabel') then
+                    Cache.ImageTransparency = Desc.ImageTransparency
+                end
+                TransparencyCache[Desc] = Cache
+            end
+        end
+    end
+
     function Library:Toggle()
         if Fading then
             return;
@@ -3839,6 +3930,10 @@ function Library:CreateWindow(...)
 
         Library:UpdateGUIStyle()
 
+        if Toggled and next(TransparencyCache) == nil then
+            UpdateTransparencyCache()
+        end
+
         for Desc, Cache in next, TransparencyCache do
             for Prop, OriginalValue in next, Cache do
                 local TargetTransparency = Toggled and math.max(OriginalValue, Library.GUITransparency) or 1
@@ -3846,7 +3941,7 @@ function Library:CreateWindow(...)
             end;
         end;
 
-        TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.QuadOut), { 
+        TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
             Size = Toggled and Config.Size or Config.Size * 0.9
         }):Play()
 
