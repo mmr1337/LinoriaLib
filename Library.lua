@@ -459,7 +459,7 @@ function Library:UpdateBackgroundParticles(Delta)
     if ScreenSize.X == 0 then return end
 
     -- Configuration Constants
-    local PARTICLE_IMAGE = "rbxassetid://98168875787365"
+    local PARTICLE_IMAGE = "rbxassetid://76634857686949"
     local MIN_SIZE, MAX_SIZE = 3, 15
     local PARTICLE_COUNT = 80
     local MIN_SPEED, MAX_SPEED = 40, 80
@@ -683,7 +683,7 @@ do
             BorderSizePixel = 0;
             Size = UDim2.new(1, 0, 1, 0);
             ZIndex = 18;
-            Image = 'rbxassetid://4155801252';
+            Image = 'rbxassetid://76634857686949';
             Parent = SatVibMapInner;
         });
 
