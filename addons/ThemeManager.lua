@@ -260,6 +260,7 @@ local ThemeManager = {} do
 
 		groupbox:AddToggle('ThemeManager_BackgroundParticles', { Text = 'Background Particles', Default = false }):OnChanged(function(Value)
 			self.Library.BackgroundParticles = Value
+			self.Library:UpdateGUIStyle()
 		end)
 	end
 
