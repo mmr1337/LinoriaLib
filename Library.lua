@@ -188,10 +188,9 @@ function Library:MakeDraggable(Instance, Cutoff)
 
     Instance.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local MousePos = InputService:GetMouseLocation()
             local ObjPos = Vector2.new(
-                MousePos.X - Instance.AbsolutePosition.X,
-                MousePos.Y - (Instance.AbsolutePosition.Y + 36) -- 36 is the top bar offset
+                Mouse.X - Instance.AbsolutePosition.X,
+                Mouse.Y - Instance.AbsolutePosition.Y
             );
 
             if ObjPos.Y > (Cutoff or 40) then
@@ -199,12 +198,11 @@ function Library:MakeDraggable(Instance, Cutoff)
             end;
 
             while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                local CurrentMousePos = InputService:GetMouseLocation()
                 Instance.Position = UDim2.new(
                     0,
-                    CurrentMousePos.X - ObjPos.X + (Instance.Size.X.Offset * (Instance.AnchorPoint.X - 0.5)),
+                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
                     0,
-                    CurrentMousePos.Y - ObjPos.Y + (Instance.Size.Y.Offset * (Instance.AnchorPoint.Y - 0.5)) + 36
+                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
                 );
 
                 RenderStepped:Wait();
@@ -414,10 +412,13 @@ end;
 function Library:UpdateGUIStyle()
     local Rounding = Library.GUIRounding
 
-    -- Recursive rounding for all descendants to avoid sharp corners
+    -- Controlled rounding to avoid breaking dropdowns/lists
     for _, Desc in next, Library.ScreenGui:GetDescendants() do
         if Desc:IsA('UICorner') then
-            Desc.CornerRadius = UDim.new(0, Rounding)
+            -- Only round frames that are actually meant to be rounded (avoid popups if needed)
+            if not Desc:FindFirstAncestor('Dropdown') or Desc.Parent.Name == 'DropdownInner' then
+                Desc.CornerRadius = UDim.new(0, Rounding)
+            end
         end
     end
 
@@ -3209,8 +3210,17 @@ function Library:CreateWindow(...)
     if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end
 
     if Config.Center then
-        Config.AnchorPoint = Vector2.new(0.5, 0.5)
-        Config.Position = UDim2.fromScale(0.5, 0.5)
+        Config.AnchorPoint = Vector2.new(0, 0)
+        local ScreenSize = ScreenGui.AbsoluteSize
+        if ScreenSize.X > 0 then
+            Config.Position = UDim2.fromOffset(
+                (ScreenSize.X / 2) - (Config.Size.X.Offset / 2),
+                (ScreenSize.Y / 2) - (Config.Size.Y.Offset / 2)
+            )
+        else
+            Config.Position = UDim2.fromScale(0.5, 0.5)
+            Config.AnchorPoint = Vector2.new(0.5, 0.5)
+        end
     end
 
     local Window = {
