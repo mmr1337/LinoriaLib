@@ -107,126 +107,10 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
         end
     end
 
-    if Library.BackgroundParticles then
-        if #Library.Particles < 30 and math.random() > 0.9 then
-            local Particle = Library:Create('ImageLabel', {
-                Name = 'Particle',
-                BackgroundTransparency = 1,
-                Image = 'rbxassetid://111966666985958',
-                ImageTransparency = 0.5 + (math.random() * 0.4),
-                Size = UDim2.fromOffset(math.random(15, 25), math.random(15, 25)),
-                Position = UDim2.new(math.random(), 0, 1, 10),
-                ZIndex = 0,
-                Parent = ScreenGui
-            })
-
-            local Corner = Library:Create('UICorner', {
-                CornerRadius = UDim.new(0.5, 0),
-                Parent = Particle
-            })
-
-            table.insert(Library.Particles, {
-                Instance = Particle,
-                Speed = 50 + (math.random() * 50),
-                RotationSpeed = (math.random() - 0.5) * 100
-            })
-        end
-
-        for i = #Library.Particles, 1, -1 do
-            local Data = Library.Particles[i]
-            local Instance = Data.Instance
-            
-            Instance.Position = Instance.Position - UDim2.fromOffset(0, Data.Speed * Delta)
-            Instance.Rotation = Instance.Rotation + (Data.RotationSpeed * Delta)
-            
-            if Instance.AbsolutePosition.Y + Instance.AbsoluteSize.Y < 0 then
-                Instance:Destroy()
-                table.remove(Library.Particles, i)
-            end
-        end
-    else
-        for i = #Library.Particles, 1, -1 do
-            Library.Particles[i].Instance:Destroy()
-            table.remove(Library.Particles, i)
-        end
-    end
 
     Library:UpdateColorsUsingRegistry()
 end))
 
-function Library:UpdateGUIStyle()
-    for Instance, Data in next, Library.Registry do
-        if Data.Properties.BackgroundTransparency then
-            Instance.BackgroundTransparency = Library.GUITransparency
-        end
-
-        if Data.Properties.CanvasTransparency then
-            Instance.CanvasTransparency = Library.GUITransparency
-        end
-    end
-
-    if Library.MainCorner then
-        Library.MainCorner.CornerRadius = UDim.new(0, Library.GUIRounding)
-    end
-
-    if Library.InnerCorner then
-        Library.InnerCorner.CornerRadius = UDim.new(0, Library.GUIRounding)
-    end
-
-    if Library.Dimmer then
-        Library.Dimmer.Visible = Library.BackgroundDimming and Library.ScreenGui.Enabled
-    end
-end
-
-function Library:SplashAnimation()
-    local SplashGui = Instance.new('ScreenGui', CoreGui)
-    local SplashOuter = Library:Create('Frame', {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = Library.MainColor,
-        BorderSizePixel = 0,
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(0, 0),
-        ClipsDescendants = true,
-        Parent = SplashGui
-    })
-
-    local SplashCorner = Library:Create('UICorner', {
-        CornerRadius = UDim.new(0, 10),
-        Parent = SplashOuter
-    })
-
-    local Logo = Library:Create('ImageLabel', {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1,
-        Image = 'rbxassetid://111966666985958',
-        Position = UDim2.fromScale(0.5, 0.45),
-        Size = UDim2.fromOffset(100, 100),
-        ImageTransparency = 1,
-        Parent = SplashOuter
-    })
-
-    local Title = Library:CreateLabel({
-        Position = UDim2.fromScale(0.5, 0.7),
-        Size = UDim2.fromOffset(200, 30),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Text = 'LinoriaLib',
-        TextSize = 24,
-        TextTransparency = 1,
-        Parent = SplashOuter
-    })
-
-    TweenService:Create(SplashOuter, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(300, 200) }):Play()
-    task.wait(0.6)
-    TweenService:Create(Logo, TweenInfo.new(0.4), { ImageTransparency = 0 }):Play()
-    TweenService:Create(Title, TweenInfo.new(0.4), { TextTransparency = 0 }):Play()
-    task.wait(1.5)
-    TweenService:Create(Logo, TweenInfo.new(0.4), { ImageTransparency = 1 }):Play()
-    TweenService:Create(Title, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
-    task.wait(0.4)
-    TweenService:Create(SplashOuter, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.fromOffset(0, 0) }):Play()
-    task.wait(0.6)
-    SplashGui:Destroy()
-end
 
 local function GetPlayersString()
     local PlayerList = Players:GetPlayers();
@@ -3913,7 +3797,7 @@ function Library:CreateWindow(...)
         Toggled = (not Toggled);
         ModalElement.Modal = Toggled;
 
-        local TargetSize = Toggled and Config.Size or Config.Size + UDim2.fromOffset(50, 50)
+        local TargetSize = Toggled and Config.Size or UDim2.new(Config.Size.X.Scale, Config.Size.X.Offset + 50, Config.Size.Y.Scale, Config.Size.Y.Offset + 50)
         local TargetScale = Toggled and 1 or 0.9
 
         if Toggled then
@@ -3942,7 +3826,7 @@ function Library:CreateWindow(...)
         end;
 
         TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
-            Size = Toggled and Config.Size or Config.Size * 0.9
+            Size = Toggled and Config.Size or UDim2.new(Config.Size.X.Scale * 0.9, Config.Size.X.Offset * 0.9, Config.Size.Y.Scale * 0.9, Config.Size.Y.Offset * 0.9)
         }):Play()
 
         task.wait(FadeTime);
