@@ -10,21 +10,20 @@ local LocalPlayer = Players.LocalPlayer;
 local Mouse = LocalPlayer:GetMouse();
 local GuiService = game:GetService('GuiService');
 
--- With IgnoreGuiInset=true, AbsolutePosition uses screen-absolute coordinates.
--- Mouse.X/Y from LocalPlayer:GetMouse() are in playable-area coordinates.
--- InputService:GetMouseLocation() IS screen-absolute and matches AbsolutePosition.
-local function GetMousePos()
-    return InputService:GetMouseLocation()
-end
-
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
+-- Main ScreenGui: no IgnoreGuiInset so Mouse.X/Y and AbsolutePosition match (original behavior)
 local ScreenGui = Instance.new('ScreenGui');
 ProtectGui(ScreenGui);
-
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.IgnoreGuiInset = true;
 ScreenGui.Parent = CoreGui;
+
+-- OverlayGui: IgnoreGuiInset=true so Dimmer and SplashScreen cover full screen including top bar
+local OverlayGui = Instance.new('ScreenGui');
+ProtectGui(OverlayGui);
+OverlayGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
+OverlayGui.IgnoreGuiInset = true;
+OverlayGui.Parent = CoreGui;
 
 local Toggles = {};
 local Options = {};
@@ -196,10 +195,9 @@ function Library:MakeDraggable(Instance, Cutoff)
 
     Instance.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local Pos = GetMousePos()
             local ObjPos = Vector2.new(
-                Pos.X - Instance.AbsolutePosition.X,
-                Pos.Y - Instance.AbsolutePosition.Y
+                Mouse.X - Instance.AbsolutePosition.X,
+                Mouse.Y - Instance.AbsolutePosition.Y
             );
 
             if ObjPos.Y > (Cutoff or 40) then
@@ -207,12 +205,11 @@ function Library:MakeDraggable(Instance, Cutoff)
             end;
 
             while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                local CurrPos = GetMousePos()
                 Instance.Position = UDim2.new(
                     0,
-                    CurrPos.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
                     0,
-                    CurrPos.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
                 );
 
                 RenderStepped:Wait();
@@ -264,14 +261,12 @@ function Library:AddToolTip(InfoStr, HoverInstance)
 
         IsHovering = true
 
-        local P = GetMousePos()
-        Tooltip.Position = UDim2.fromOffset(P.X + 15, P.Y + 12)
+        Tooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 12)
         Tooltip.Visible = true
 
         while IsHovering do
             RunService.Heartbeat:Wait()
-            local P2 = GetMousePos()
-            Tooltip.Position = UDim2.fromOffset(P2.X + 15, P2.Y + 12)
+            Tooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 12)
         end
     end)
 
@@ -308,12 +303,11 @@ function Library:OnHighlight(HighlightInstance, Instance, Properties, Properties
 end;
 
 function Library:MouseIsOverOpenedFrame()
-    local Pos = GetMousePos()
     for Frame, _ in next, Library.OpenedFrames do
         local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
-        if Pos.X >= AbsPos.X and Pos.X <= AbsPos.X + AbsSize.X
-            and Pos.Y >= AbsPos.Y and Pos.Y <= AbsPos.Y + AbsSize.Y then
+        if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
+            and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
 
             return true;
         end;
@@ -321,11 +315,10 @@ function Library:MouseIsOverOpenedFrame()
 end;
 
 function Library:IsMouseOverFrame(Frame)
-    local Pos = GetMousePos()
     local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
-    if Pos.X >= AbsPos.X and Pos.X <= AbsPos.X + AbsSize.X
-        and Pos.Y >= AbsPos.Y and Pos.Y <= AbsPos.Y + AbsSize.Y then
+    if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
+        and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
 
         return true;
     end;
@@ -3237,7 +3230,7 @@ function Library:CreateWindow(...)
         Size = UDim2.fromScale(1, 1),
         Visible = false,
         ZIndex = 0,
-        Parent = ScreenGui
+        Parent = OverlayGui
     })
 
     Library.Dimmer = Dimmer
