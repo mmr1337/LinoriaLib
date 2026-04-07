@@ -245,51 +245,8 @@ local ThemeManager = {} do
 		return tab:AddLeftGroupbox('Themes')
 	end
 
-	function ThemeManager:CreateCursorManager(groupbox)
-		groupbox:AddToggle('ThemeManager_CustomCursorEnabled', { Text = 'Enable Custom Cursor', Default = self.Library.CursorEnabled }):OnChanged(function(Value)
-			self.Library.CursorEnabled = Value
-			self.Library:UpdateCursor()
-		end)
-
-		groupbox:AddToggle('ThemeManager_CustomCursor', { Text = 'Always On', Default = self.Library.CursorAlwaysOn }):OnChanged(function(Value)
-			self.Library.CursorAlwaysOn = Value
-			self.Library:UpdateCursor()
-		end)
-
-		groupbox:AddInput('ThemeManager_CustomCursorID', { Text = 'Cursor ID', Default = self.Library.CursorID }):OnChanged(function(Value)
-			self.Library.CursorID = Value
-			self.Library:CreateCursor()
-		end)
-
-		groupbox:AddSlider('ThemeManager_CustomCursorSize', { Text = 'Cursor Size', Default = 32, Min = 16, Max = 64, Rounding = 0 }):OnChanged(function(Value)
-			self.Library.CursorSize = Value
-			self.Library:UpdateCursor()
-		end)
-
-		groupbox:AddSlider('ThemeManager_CustomCursorRounding', { Text = 'Cursor Rounding', Default = 0, Min = 0, Max = 32, Rounding = 0 }):OnChanged(function(Value)
-			self.Library.CursorRounding = Value
-			self.Library:UpdateCursor()
-		end)
-
-		groupbox:AddToggle('ThemeManager_CustomCursorOutline', { Text = 'Cursor Outline', Default = true }):OnChanged(function(Value)
-			self.Library.CursorOutline = Value
-			self.Library:UpdateCursor()
-		end)
-
-		local CursorOutlineColorPicker = groupbox:AddLabel('Outline Color'):AddColorPicker('ThemeManager_CustomCursorOutlineColor', { Default = Color3.new(0, 0, 0) })
-		
-		CursorOutlineColorPicker:OnChanged(function(Value)
-			self.Library.CursorOutlineColor = Value
-			self.Library.CursorOutlineRGB = CursorOutlineColorPicker.RGB
-			self.Library:UpdateCursor()
-		end)
-	end
 
 	function ThemeManager:CreateVisualsManager(groupbox)
-		groupbox:AddSlider('ThemeManager_GUITransparency', { Text = 'GUI Transparency', Default = 0, Min = 0, Max = 0.8, Rounding = 2 }):OnChanged(function(Value)
-			self.Library.GUITransparency = Value
-			self.Library:UpdateGUIStyle()
-		end)
 
 		groupbox:AddSlider('ThemeManager_GUIRounding', { Text = 'GUI Rounding', Default = 0, Min = 0, Max = 20, Rounding = 0 }):OnChanged(function(Value)
 			self.Library.GUIRounding = Value
@@ -313,9 +270,6 @@ local ThemeManager = {} do
 
 		local visualsGroupbox = tab:AddLeftGroupbox('Visual Effects')
 		self:CreateVisualsManager(visualsGroupbox)
-
-		local cursorGroupbox = tab:AddRightGroupbox('Custom Cursor')
-		self:CreateCursorManager(cursorGroupbox)
 	end
 
 	function ThemeManager:ApplyToGroupbox(groupbox)
