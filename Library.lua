@@ -10,6 +10,13 @@ local LocalPlayer = Players.LocalPlayer;
 local Mouse = LocalPlayer:GetMouse();
 local GuiService = game:GetService('GuiService');
 
+-- With IgnoreGuiInset=true, AbsolutePosition uses screen-absolute coordinates.
+-- Mouse.X/Y from LocalPlayer:GetMouse() are in playable-area coordinates.
+-- InputService:GetMouseLocation() IS screen-absolute and matches AbsolutePosition.
+local function GetMousePos()
+    return InputService:GetMouseLocation()
+end
+
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
 local ScreenGui = Instance.new('ScreenGui');
@@ -47,6 +54,7 @@ local Library = {
     Signals = {};
     ScreenGui = ScreenGui;
 
+    MenuOpen = false;
     GUIRounding = 0;
     BackgroundDimming = false;
     BackgroundParticles = false;
@@ -188,9 +196,10 @@ function Library:MakeDraggable(Instance, Cutoff)
 
     Instance.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local Pos = GetMousePos()
             local ObjPos = Vector2.new(
-                Mouse.X - Instance.AbsolutePosition.X,
-                Mouse.Y - Instance.AbsolutePosition.Y
+                Pos.X - Instance.AbsolutePosition.X,
+                Pos.Y - Instance.AbsolutePosition.Y
             );
 
             if ObjPos.Y > (Cutoff or 40) then
@@ -198,11 +207,12 @@ function Library:MakeDraggable(Instance, Cutoff)
             end;
 
             while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                local CurrPos = GetMousePos()
                 Instance.Position = UDim2.new(
                     0,
-                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+                    CurrPos.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
                     0,
-                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+                    CurrPos.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
                 );
 
                 RenderStepped:Wait();
@@ -254,12 +264,14 @@ function Library:AddToolTip(InfoStr, HoverInstance)
 
         IsHovering = true
 
-        Tooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 12)
+        local P = GetMousePos()
+        Tooltip.Position = UDim2.fromOffset(P.X + 15, P.Y + 12)
         Tooltip.Visible = true
 
         while IsHovering do
             RunService.Heartbeat:Wait()
-            Tooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 12)
+            local P2 = GetMousePos()
+            Tooltip.Position = UDim2.fromOffset(P2.X + 15, P2.Y + 12)
         end
     end)
 
@@ -296,11 +308,12 @@ function Library:OnHighlight(HighlightInstance, Instance, Properties, Properties
 end;
 
 function Library:MouseIsOverOpenedFrame()
+    local Pos = GetMousePos()
     for Frame, _ in next, Library.OpenedFrames do
         local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
-        if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
-            and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
+        if Pos.X >= AbsPos.X and Pos.X <= AbsPos.X + AbsSize.X
+            and Pos.Y >= AbsPos.Y and Pos.Y <= AbsPos.Y + AbsSize.Y then
 
             return true;
         end;
@@ -308,10 +321,11 @@ function Library:MouseIsOverOpenedFrame()
 end;
 
 function Library:IsMouseOverFrame(Frame)
+    local Pos = GetMousePos()
     local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
-    if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
-        and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
+    if Pos.X >= AbsPos.X and Pos.X <= AbsPos.X + AbsSize.X
+        and Pos.Y >= AbsPos.Y and Pos.Y <= AbsPos.Y + AbsSize.Y then
 
         return true;
     end;
@@ -412,16 +426,29 @@ end;
 function Library:UpdateGUIStyle()
     local Rounding = Library.GUIRounding
 
-    -- Rounding: apply to all UICorner instances in the ScreenGui
+    -- Apply rounding to all UICorner instances in the ScreenGui
     for _, Desc in next, Library.ScreenGui:GetDescendants() do
         if Desc:IsA('UICorner') then
             Desc.CornerRadius = UDim.new(0, Rounding)
         end
     end
+
+    -- Dimmer: only show if menu is open AND BackgroundDimming is enabled
+    if Library.Dimmer then
+        local ShouldShow = Library.MenuOpen and Library.BackgroundDimming
+        if ShouldShow and not Library.Dimmer.Visible then
+            Library.Dimmer.BackgroundTransparency = 0.5
+            Library.Dimmer.Visible = true
+        elseif not ShouldShow and Library.Dimmer.Visible then
+            Library.Dimmer.Visible = false
+        end
+    end
 end
 
 function Library:UpdateBackgroundParticles(Delta)
-    if not Library.BackgroundParticles or not Library.ScreenGui.Enabled then
+    local ShouldShow = Library.BackgroundParticles and Library.MenuOpen
+
+    if not ShouldShow then
         if #Library.Particles > 0 then
             for _, Particle in next, Library.Particles do
                 Particle.frame:Destroy()
@@ -3791,6 +3818,7 @@ function Library:CreateWindow(...)
 
         if Toggled then
             Outer.Visible = true;
+            Library.MenuOpen = true;
             -- Show dimmer if enabled
             if Library.Dimmer and Library.BackgroundDimming then
                 Library.Dimmer.BackgroundTransparency = 1;
@@ -3798,6 +3826,7 @@ function Library:CreateWindow(...)
                 TweenService:Create(Library.Dimmer, TweenInfo.new(FadeTime), { BackgroundTransparency = 0.5 }):Play();
             end
         else
+            Library.MenuOpen = false;
             -- Fade out dimmer
             if Library.Dimmer and Library.Dimmer.Visible then
                 TweenService:Create(Library.Dimmer, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play();
@@ -3841,6 +3870,7 @@ function Library:CreateWindow(...)
         task.wait(FadeTime);
 
         if not Toggled then
+            Library.MenuOpen = false;
             Outer.Visible = false;
             if Library.Dimmer then
                 Library.Dimmer.Visible = false;
