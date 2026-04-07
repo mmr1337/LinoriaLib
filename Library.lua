@@ -412,24 +412,10 @@ end;
 function Library:UpdateGUIStyle()
     local Rounding = Library.GUIRounding
 
-    -- Controlled rounding to avoid breaking dropdowns/lists
+    -- Rounding: apply to all UICorner instances in the ScreenGui
     for _, Desc in next, Library.ScreenGui:GetDescendants() do
         if Desc:IsA('UICorner') then
-            -- Only round frames that are actually meant to be rounded (avoid popups if needed)
-            if not Desc:FindFirstAncestor('Dropdown') or Desc.Parent.Name == 'DropdownInner' then
-                Desc.CornerRadius = UDim.new(0, Rounding)
-            end
-        end
-    end
-
-    if Library.Dimmer then
-        local TargetDimmerVisible = Library.BackgroundDimming and Library.ScreenGui.Enabled
-        Library.Dimmer.Visible = TargetDimmerVisible
-        
-        if TargetDimmerVisible then
-            Library.Dimmer.BackgroundTransparency = 0.5
-        else
-            Library.Dimmer.BackgroundTransparency = 1
+            Desc.CornerRadius = UDim.new(0, Rounding)
         end
     end
 end
@@ -3210,17 +3196,8 @@ function Library:CreateWindow(...)
     if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end
 
     if Config.Center then
-        Config.AnchorPoint = Vector2.new(0, 0)
-        local ScreenSize = ScreenGui.AbsoluteSize
-        if ScreenSize.X > 0 then
-            Config.Position = UDim2.fromOffset(
-                (ScreenSize.X / 2) - (Config.Size.X.Offset / 2),
-                (ScreenSize.Y / 2) - (Config.Size.Y.Offset / 2)
-            )
-        else
-            Config.Position = UDim2.fromScale(0.5, 0.5)
-            Config.AnchorPoint = Vector2.new(0.5, 0.5)
-        end
+        Config.AnchorPoint = Vector2.new(0.5, 0.5)
+        Config.Position = UDim2.fromScale(0.5, 0.5)
     end
 
     local Window = {
@@ -3798,6 +3775,10 @@ function Library:CreateWindow(...)
     });
 
 
+    local TransparencyCache = {};
+    local Toggled = false;
+    local Fading = false;
+
     function Library:Toggle()
         if Fading then
             return;
@@ -3808,34 +3789,65 @@ function Library:CreateWindow(...)
         Toggled = (not Toggled);
         ModalElement.Modal = Toggled;
 
-        local TargetScale = Toggled and 1 or 0.95
-
         if Toggled then
             Outer.Visible = true;
-            if Library.Dimmer then
-                Library.Dimmer.Visible = Library.BackgroundDimming;
+            -- Show dimmer if enabled
+            if Library.Dimmer and Library.BackgroundDimming then
+                Library.Dimmer.BackgroundTransparency = 1;
+                Library.Dimmer.Visible = true;
                 TweenService:Create(Library.Dimmer, TweenInfo.new(FadeTime), { BackgroundTransparency = 0.5 }):Play();
             end
         else
-            if Library.Dimmer then
+            -- Fade out dimmer
+            if Library.Dimmer and Library.Dimmer.Visible then
                 TweenService:Create(Library.Dimmer, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play();
             end
         end
 
-        Library:UpdateGUIStyle()
+        for _, Desc in next, Outer:GetDescendants() do
+            local Properties = {};
 
-        TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
-            Size = UDim2.new(Config.Size.X.Scale * TargetScale, Config.Size.X.Offset * TargetScale, Config.Size.Y.Scale * TargetScale, Config.Size.Y.Offset * TargetScale)
-        }):Play()
+            if Desc:IsA('ImageLabel') then
+                table.insert(Properties, 'ImageTransparency');
+                table.insert(Properties, 'BackgroundTransparency');
+            elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
+                table.insert(Properties, 'TextTransparency');
+            elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+                table.insert(Properties, 'BackgroundTransparency');
+            elseif Desc:IsA('UIStroke') then
+                table.insert(Properties, 'Transparency');
+            end;
+
+            local Cache = TransparencyCache[Desc];
+
+            if (not Cache) then
+                Cache = {};
+                TransparencyCache[Desc] = Cache;
+            end;
+
+            for _, Prop in next, Properties do
+                if not Cache[Prop] then
+                    Cache[Prop] = Desc[Prop];
+                end;
+
+                if Cache[Prop] == 1 then
+                    continue;
+                end;
+
+                TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [Prop] = Toggled and Cache[Prop] or 1 }):Play();
+            end;
+        end;
 
         task.wait(FadeTime);
 
         if not Toggled then
             Outer.Visible = false;
+            if Library.Dimmer then
+                Library.Dimmer.Visible = false;
+            end
         end
 
         Library:UpdateGUIStyle()
-
         Fading = false;
     end
 
