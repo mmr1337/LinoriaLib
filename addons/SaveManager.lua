@@ -36,13 +36,14 @@ local SaveManager = {} do
 		},
 		ColorPicker = {
 			Save = function(idx, object)
-				return { type = 'ColorPicker', idx = idx, value = object.Value:ToHex(), transparency = object.Transparency, rgb = object.RGB, pulsar = object.Pulsar, rgbSpeed = object.RGBSpeed, pulsarSpeed = object.PulsarSpeed }
+				return { type = 'ColorPicker', idx = idx, value = object.Value:ToHex(), transparency = object.Transparency, rgb = object.RGB, pulsar = object.Pulsar, rgbSpeed = object.RGBSpeed, pulsarSpeed = object.PulsarSpeed, pulsarColor = object.PulsarColor:ToHex() }
 			end,
 			Load = function(idx, data)
 				if Options[idx] then 
 					Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency, data.rgb, data.pulsar)
 					if data.rgbSpeed then Options[idx]:SetRGBSpeed(data.rgbSpeed) end
 					if data.pulsarSpeed then Options[idx]:SetPulsarSpeed(data.pulsarSpeed) end
+					if data.pulsarColor then Options[idx]:SetPulsarColor(Color3.fromHex(data.pulsarColor)) end
 				end
 			end,
 		},
@@ -255,6 +256,11 @@ local SaveManager = {} do
 
 		section:AddButton('Set as autoload', function()
 			local name = Options.SaveManager_ConfigList.Value
+
+			if not name then
+				return self.Library:Notify('Please select a config to set as autoload.')
+			end
+
 			writefile(self.Folder .. '/settings/autoload.txt', name)
 			SaveManager.AutoloadLabel:SetText('Current autoload config: ' .. name)
 			self.Library:Notify(string.format('Set %q to auto load', name))
