@@ -3922,7 +3922,7 @@ function Library:SplashAnimation()
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.45),
         Size = UDim2.fromOffset(200, 50),
-        Text = 'LinoriaLib',
+        Text = 'Moon-_-',
         TextSize = 40,
         Font = Enum.Font.Code,
         ZIndex = 201,
