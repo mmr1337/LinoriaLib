@@ -16,6 +16,7 @@ local ScreenGui = Instance.new('ScreenGui');
 ProtectGui(ScreenGui);
 
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
+ScreenGui.IgnoreGuiInset = true;
 ScreenGui.Parent = CoreGui;
 
 local Toggles = {};
@@ -443,11 +444,12 @@ function Library:UpdateGUIStyle()
         if Instance:IsA('Frame') or Instance:IsA('ScrollingFrame') then
             Instance.BackgroundTransparency = math.min(Transparency, 0.8)
         end
+    end
 
-        for _, Child in next, Instance:GetChildren() do
-            if Child:IsA('UICorner') then
-                Child.CornerRadius = UDim.new(0, Rounding)
-            end
+    -- Recursive rounding for all descendants to avoid sharp corners
+    for _, Desc in next, Library.ScreenGui:GetDescendants() do
+        if Desc:IsA('UICorner') then
+            Desc.CornerRadius = UDim.new(0, Rounding)
         end
     end
 end
@@ -3206,10 +3208,10 @@ function Library:CreateWindow(...)
     Library.Dimmer = Dimmer
 
     local Outer = Library:Create('Frame', {
-        AnchorPoint = Config.AnchorPoint,
+        AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Color3.new(0, 0, 0);
         BorderSizePixel = 0;
-        Position = Config.Position,
+        Position = Config.Position or UDim2.fromScale(0.5, 0.5),
         Size = Config.Size,
         Visible = false;
         ZIndex = 1,
@@ -3797,8 +3799,7 @@ function Library:CreateWindow(...)
         Toggled = (not Toggled);
         ModalElement.Modal = Toggled;
 
-        local TargetSize = Toggled and Config.Size or UDim2.new(Config.Size.X.Scale, Config.Size.X.Offset + 50, Config.Size.Y.Scale, Config.Size.Y.Offset + 50)
-        local TargetScale = Toggled and 1 or 0.9
+        local TargetScale = Toggled and 1 or 0.95
 
         if Toggled then
             Outer.Visible = true;
@@ -3826,7 +3827,7 @@ function Library:CreateWindow(...)
         end;
 
         TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
-            Size = Toggled and Config.Size or UDim2.new(Config.Size.X.Scale * 0.9, Config.Size.X.Offset * 0.9, Config.Size.Y.Scale * 0.9, Config.Size.Y.Offset * 0.9)
+            Size = UDim2.new(Config.Size.X.Scale * TargetScale, Config.Size.X.Offset * TargetScale, Config.Size.Y.Scale * TargetScale, Config.Size.Y.Offset * TargetScale)
         }):Play()
 
         task.wait(FadeTime);
