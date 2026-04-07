@@ -188,9 +188,10 @@ function Library:MakeDraggable(Instance, Cutoff)
 
     Instance.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local MousePos = InputService:GetMouseLocation()
             local ObjPos = Vector2.new(
-                Mouse.X - Instance.AbsolutePosition.X,
-                Mouse.Y - Instance.AbsolutePosition.Y
+                MousePos.X - Instance.AbsolutePosition.X,
+                MousePos.Y - (Instance.AbsolutePosition.Y + 36) -- 36 is the top bar offset
             );
 
             if ObjPos.Y > (Cutoff or 40) then
@@ -198,11 +199,12 @@ function Library:MakeDraggable(Instance, Cutoff)
             end;
 
             while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                local CurrentMousePos = InputService:GetMouseLocation()
                 Instance.Position = UDim2.new(
                     0,
-                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+                    CurrentMousePos.X - ObjPos.X + (Instance.Size.X.Offset * (Instance.AnchorPoint.X - 0.5)),
                     0,
-                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+                    CurrentMousePos.Y - ObjPos.Y + (Instance.Size.Y.Offset * (Instance.AnchorPoint.Y - 0.5)) + 36
                 );
 
                 RenderStepped:Wait();
@@ -418,10 +420,21 @@ function Library:UpdateGUIStyle()
             Desc.CornerRadius = UDim.new(0, Rounding)
         end
     end
+
+    if Library.Dimmer then
+        local TargetDimmerVisible = Library.BackgroundDimming and Library.ScreenGui.Enabled
+        Library.Dimmer.Visible = TargetDimmerVisible
+        
+        if TargetDimmerVisible then
+            Library.Dimmer.BackgroundTransparency = 0.5
+        else
+            Library.Dimmer.BackgroundTransparency = 1
+        end
+    end
 end
 
 function Library:UpdateBackgroundParticles(Delta)
-    if not Library.BackgroundParticles then
+    if not Library.BackgroundParticles or not Library.ScreenGui.Enabled then
         if #Library.Particles > 0 then
             for _, Particle in next, Library.Particles do
                 Particle.frame:Destroy()
@@ -3809,10 +3822,9 @@ function Library:CreateWindow(...)
 
         if not Toggled then
             Outer.Visible = false;
-            if Library.Dimmer then
-                Library.Dimmer.Visible = false;
-            end
         end
+
+        Library:UpdateGUIStyle()
 
         Fading = false;
     end
