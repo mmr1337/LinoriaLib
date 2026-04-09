@@ -250,15 +250,23 @@ function GlobalChat:CreateWindow()
 
     -- Outer
     local Outer = L:Create('Frame', {
-        AnchorPoint      = Vector2.new(0, 0),
         BackgroundColor3 = Color3.new(0, 0, 0),
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(760, 50),
-        Size             = UDim2.fromOffset(420, 320),
-        Visible          = false,
+        Position         = UDim2.new(1, -370, 1, -300),
+        Size             = UDim2.fromOffset(360, 290),
         ZIndex           = 1,
         Parent           = SG,
     })
+
+    if L.IsMobile then
+        Outer.Size = UDim2.fromOffset(350, 250)
+        Outer.Position = UDim2.fromOffset(10, 10)
+    end
+
+    if L.RegisterAutoScaleTarget then
+        L:RegisterAutoScaleTarget(SG)
+    end
+
     L:MakeDraggable(Outer, 25)
 
     -- Inner chrome
@@ -406,7 +414,8 @@ function GlobalChat:CreateWindow()
         TB.Text = ''
         self:SendMessage(msg)
     end
-    SendBtn.MouseButton1Click:Connect(doSend)
+    SendBtn.MouseButton1Down:Connect(doSend)
+    SendBtn.TouchTap:Connect(doSend)
     TB.FocusLost:Connect(function(enter) if enter then doSend() end end)
 end
 
