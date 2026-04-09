@@ -367,6 +367,12 @@ function Library:MakeDraggable(Instance, Cutoff, IsMainWindow)
             end;
 
             if not Dragging and Library:IsMouseOverFrame(Instance, Input) and (IsMainWindow ~= true or (Library.CanDrag and Library.Window and Library.Window.Holder and Library.Window.Holder.Visible == true)) then
+                local ObjPosY = Input.Position.Y - Instance.AbsolutePosition.Y
+                if ObjPosY > (Cutoff or 40) then
+                    Dragging = false;
+                    return;
+                end
+
                 DraggingInput = Input;
                 DraggingStart = Input.Position;
                 StartPosition = Instance.Position;
@@ -2777,8 +2783,12 @@ do
             Parent = ScreenGui;
         });
 
+        if Library.RegisterAutoScaleTarget then
+            Library:RegisterAutoScaleTarget(ListOuter);
+        end
+
         local function RecalculateListPosition()
-            ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
+            ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.AbsoluteSize.Y + 1);
         end;
 
         local function RecalculateListSize(YSize)
@@ -2789,6 +2799,7 @@ do
         RecalculateListSize();
 
         DropdownOuter:GetPropertyChangedSignal('AbsolutePosition'):Connect(RecalculateListPosition);
+        DropdownOuter:GetPropertyChangedSignal('AbsoluteSize'):Connect(RecalculateListSize);
 
         local ListInner = Library:Create('Frame', {
             BackgroundColor3 = Library.MainColor;
