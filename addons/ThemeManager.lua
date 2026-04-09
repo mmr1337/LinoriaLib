@@ -247,6 +247,17 @@ local ThemeManager = {} do
 
 
 	function ThemeManager:CreateVisualsManager(groupbox)
+		groupbox:AddSlider('ThemeManager_AutoScale', { Text = 'UI Scale %', Default = 100, Min = 70, Max = 150, Rounding = 0 }):OnChanged(function(Value)
+			if self.Library.SetAutoScaleMultiplier then
+				self.Library:SetAutoScaleMultiplier(Value / 100)
+			end
+		end)
+
+		groupbox:AddToggle('ThemeManager_AutoScaleEnabled', { Text = 'Auto Scale', Default = true }):OnChanged(function(Value)
+			if self.Library.SetAutoScaleEnabled then
+				self.Library:SetAutoScaleEnabled(Value)
+			end
+		end)
 
 		groupbox:AddSlider('ThemeManager_GUIRounding', { Text = 'GUI Rounding', Default = 0, Min = 0, Max = 20, Rounding = 0 }):OnChanged(function(Value)
 			self.Library.GUIRounding = Value
