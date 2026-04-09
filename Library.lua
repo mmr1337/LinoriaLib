@@ -172,7 +172,8 @@ function Library:SetAutoScaleMultiplier(Value)
         return
     end
 
-    self.AutoScaleMultiplier = math.clamp(Value, 0.5, 2)
+    local minMultiplier = self.IsMobile and 0.9 or 0.5
+    self.AutoScaleMultiplier = math.clamp(Value, minMultiplier, 2)
     self:RefreshAutoScale()
 end
 
@@ -326,6 +327,16 @@ end;
 function Library:MakeDraggable(Instance, Cutoff, IsMainWindow)
     Instance.Active = true;
 
+    local function GetCutoff()
+        local scale = 1
+        local autoScale = Instance:FindFirstChild('__LinoriaAutoScale')
+        if autoScale and autoScale:IsA('UIScale') then
+            scale = autoScale.Scale
+        end
+
+        return (Cutoff or 40) * scale
+    end
+
     if Library.IsMobile == false then
         Instance.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -338,7 +349,7 @@ function Library:MakeDraggable(Instance, Cutoff, IsMainWindow)
                     Mouse.Y - Instance.AbsolutePosition.Y
                 );
 
-                if ObjPos.Y > (Cutoff or 40) then
+                if ObjPos.Y > GetCutoff() then
                     return;
                 end;
 
@@ -368,7 +379,7 @@ function Library:MakeDraggable(Instance, Cutoff, IsMainWindow)
 
             if not Dragging and Library:IsMouseOverFrame(Instance, Input) and (IsMainWindow ~= true or (Library.CanDrag and Library.Window and Library.Window.Holder and Library.Window.Holder.Visible == true)) then
                 local ObjPosY = Input.Position.Y - Instance.AbsolutePosition.Y
-                if ObjPosY > (Cutoff or 40) then
+                if ObjPosY > GetCutoff() then
                     Dragging = false;
                     return;
                 end
