@@ -62,7 +62,21 @@ local Library = {
     BackgroundDimming = false;
     BackgroundParticles = false;
     Particles = {};
+
+    IsMobile = false;
+    DevicePlatform = Enum.Platform.None;
+    CanDrag = true;
+    CantDragForced = false;
 };
+
+if RunService:IsStudio() then
+    Library.IsMobile = InputService.TouchEnabled and not InputService.MouseEnabled
+else
+    pcall(function()
+        Library.DevicePlatform = InputService:GetPlatform()
+    end)
+    Library.IsMobile = (Library.DevicePlatform == Enum.Platform.Android or Library.DevicePlatform == Enum.Platform.IOS)
+end
 
 local RainbowStep = 0
 local PulsarStep = 0
@@ -194,32 +208,79 @@ function Library:CreateLabel(Properties, IsHud)
     return Library:Create(_Instance, Properties);
 end;
 
-function Library:MakeDraggable(Instance, Cutoff)
+function Library:MakeDraggable(Instance, Cutoff, IsMainWindow)
     Instance.Active = true;
 
-    Instance.InputBegan:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local ObjPos = Vector2.new(
-                Mouse.X - Instance.AbsolutePosition.X,
-                Mouse.Y - Instance.AbsolutePosition.Y
-            );
+    if Library.IsMobile == false then
+        Instance.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if IsMainWindow == true and Library.CantDragForced == true then
+                    return;
+                end;
 
-            if ObjPos.Y > (Cutoff or 40) then
+                local ObjPos = Vector2.new(
+                    Mouse.X - Instance.AbsolutePosition.X,
+                    Mouse.Y - Instance.AbsolutePosition.Y
+                );
+
+                if ObjPos.Y > (Cutoff or 40) then
+                    return;
+                end;
+
+                while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                    Instance.Position = UDim2.new(
+                        0,
+                        Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+                        0,
+                        Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+                    );
+
+                    RenderStepped:Wait();
+                end;
+            end;
+        end)
+    else
+        local Dragging = false;
+        local DraggingInput = nil;
+        local DraggingStart = nil;
+        local StartPosition = nil;
+
+        InputService.TouchStarted:Connect(function(Input)
+            if IsMainWindow == true and Library.CantDragForced == true then
+                Dragging = false;
                 return;
             end;
 
-            while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                Instance.Position = UDim2.new(
-                    0,
-                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-                    0,
-                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-                );
-
-                RenderStepped:Wait();
+            if not Dragging and Library:IsMouseOverFrame(Instance, Input) and (IsMainWindow ~= true or (Library.CanDrag and Library.Window and Library.Window.Holder and Library.Window.Holder.Visible == true)) then
+                DraggingInput = Input;
+                DraggingStart = Input.Position;
+                StartPosition = Instance.Position;
+                Dragging = true;
             end;
-        end;
-    end)
+        end);
+
+        InputService.TouchMoved:Connect(function(Input)
+            if Input == DraggingInput and Dragging then
+                if IsMainWindow == true and not (Library.CanDrag and Library.Window and Library.Window.Holder and Library.Window.Holder.Visible == true) then
+                    return;
+                end;
+
+                local OffsetPos = Input.Position - DraggingStart;
+                Instance.Position = UDim2.new(
+                    StartPosition.X.Scale,
+                    StartPosition.X.Offset + OffsetPos.X,
+                    StartPosition.Y.Scale,
+                    StartPosition.Y.Offset + OffsetPos.Y
+                );
+            end;
+        end);
+
+        InputService.TouchEnded:Connect(function(Input)
+            if Input == DraggingInput then
+                Dragging = false;
+            end;
+        end);
+    end
 end;
 
 function Library:AddToolTip(InfoStr, HoverInstance)
@@ -306,23 +367,24 @@ function Library:OnHighlight(HighlightInstance, Instance, Properties, Properties
     end)
 end;
 
-function Library:MouseIsOverOpenedFrame()
+function Library:MouseIsOverOpenedFrame(Input)
     for Frame, _ in next, Library.OpenedFrames do
-        local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
-
-        if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
-            and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
-
+        if Library:IsMouseOverFrame(Frame, Input) then
             return true;
         end;
     end;
 end;
 
-function Library:IsMouseOverFrame(Frame)
+function Library:IsMouseOverFrame(Frame, Input)
+    local Pos = Mouse;
+    if Library.IsMobile and Input then
+        Pos = Input.Position;
+    end;
+
     local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
-    if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
-        and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
+    if Pos.X >= AbsPos.X and Pos.X <= AbsPos.X + AbsSize.X
+        and Pos.Y >= AbsPos.Y and Pos.Y <= AbsPos.Y + AbsSize.Y then
 
         return true;
     end;
@@ -344,6 +406,14 @@ function Library:GetTextBounds(Text, Font, Size, Resolution)
 end;
 
 function Library:GetDarkerColor(Color)
+    if typeof(Color) ~= "Color3" then
+        Color = Library.AccentColor
+    end
+
+    if typeof(Color) ~= "Color3" then
+        Color = Color3.fromRGB(0, 85, 255)
+    end
+
     local H, S, V = Color3.toHSV(Color);
     return Color3.fromHSV(H, S, V / 1.5);
 end;
@@ -3739,7 +3809,7 @@ function Library:CreateWindow(...)
                 end;
 
                 Button.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
+                    if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Library:MouseIsOverOpenedFrame(Input) then
                         Tab:Show();
                         Tab:Resize();
                     end;
@@ -3775,7 +3845,7 @@ function Library:CreateWindow(...)
         end;
 
         TabButton.InputBegan:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                 Tab:ShowTab();
             end;
         end);
@@ -3798,6 +3868,47 @@ function Library:CreateWindow(...)
         Parent = ScreenGui;
     });
 
+    local MobileOpenButton, MobileCloseButton;
+    if Library.IsMobile then
+        MobileOpenButton = Library:Create('TextButton', {
+            AnchorPoint = Vector2.new(0, 1);
+            Position = UDim2.new(0, 10, 1, -10);
+            Size = UDim2.new(0, 90, 0, 30);
+            BackgroundColor3 = Library.MainColor;
+            BorderColor3 = Library.AccentColor;
+            Text = 'Open UI';
+            Font = Library.Font;
+            TextSize = 14;
+            TextColor3 = Library.FontColor;
+            Visible = false;
+            ZIndex = 300;
+            Parent = ScreenGui;
+        });
+
+        MobileCloseButton = Library:Create('TextButton', {
+            AnchorPoint = Vector2.new(1, 0);
+            Position = UDim2.new(1, -6, 0, 6);
+            Size = UDim2.new(0, 54, 0, 20);
+            BackgroundColor3 = Library.MainColor;
+            BorderColor3 = Library.AccentColor;
+            Text = 'Hide';
+            Font = Library.Font;
+            TextSize = 14;
+            TextColor3 = Library.FontColor;
+            Visible = false;
+            ZIndex = 300;
+            Parent = Outer;
+        });
+
+        MobileOpenButton.MouseButton1Click:Connect(function()
+            task.spawn(Library.Toggle);
+        end);
+
+        MobileCloseButton.MouseButton1Click:Connect(function()
+            task.spawn(Library.Toggle);
+        end);
+    end
+
 
     local TransparencyCache = {};
     local Toggled = false;
@@ -3816,6 +3927,12 @@ function Library:CreateWindow(...)
         if Toggled then
             Outer.Visible = true;
             Library.MenuOpen = true;
+            if MobileOpenButton then
+                MobileOpenButton.Visible = false;
+            end
+            if MobileCloseButton then
+                MobileCloseButton.Visible = true;
+            end
             -- Show dimmer if enabled
             if Library.Dimmer and Library.BackgroundDimming then
                 Library.Dimmer.BackgroundTransparency = 1;
@@ -3824,6 +3941,9 @@ function Library:CreateWindow(...)
             end
         else
             Library.MenuOpen = false;
+            if MobileCloseButton then
+                MobileCloseButton.Visible = false;
+            end
             -- Fade out dimmer
             if Library.Dimmer and Library.Dimmer.Visible then
                 TweenService:Create(Library.Dimmer, TweenInfo.new(FadeTime), { BackgroundTransparency = 1 }):Play();
@@ -3869,6 +3989,9 @@ function Library:CreateWindow(...)
         if not Toggled then
             Library.MenuOpen = false;
             Outer.Visible = false;
+            if MobileOpenButton then
+                MobileOpenButton.Visible = true;
+            end
             if Library.Dimmer then
                 Library.Dimmer.Visible = false;
             end
