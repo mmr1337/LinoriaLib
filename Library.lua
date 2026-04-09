@@ -52,13 +52,11 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 -- https://github.com/deividcomsono/Obsidian/blob/main/Library.lua#L30
-local BaseURL = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/refs/heads/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
     Cursor = {
         RobloxId = 9619665977,
         Path = "LinoriaLib/assets/Cursor.png",
-        URL = BaseURL .. "assets/Cursor.png",
 
         Id = nil,
     },
@@ -66,7 +64,6 @@ local CustomImageManagerAssets = {
     DropdownArrow = {
         RobloxId = 6282522798,
         Path = "LinoriaLib/assets/DropdownArrow.png",
-        URL = BaseURL .. "assets/DropdownArrow.png",
 
         Id = nil,
     },
@@ -74,7 +71,6 @@ local CustomImageManagerAssets = {
     Checker = {
         RobloxId = 12977615774,
         Path = "LinoriaLib/assets/Checker.png",
-        URL = BaseURL .. "assets/Checker.png",
 
         Id = nil,
     },
@@ -82,7 +78,6 @@ local CustomImageManagerAssets = {
     CheckerLong = {
         RobloxId = 12978095818,
         Path = "LinoriaLib/assets/CheckerLong.png",
-        URL = BaseURL .. "assets/CheckerLong.png",
 
         Id = nil,
     },
@@ -90,7 +85,6 @@ local CustomImageManagerAssets = {
     SaturationMap = {
         RobloxId = 4155801252,
         Path = "LinoriaLib/assets/SaturationMap.png",
-        URL = BaseURL .. "assets/SaturationMap.png",
 
         Id = nil,
     }
@@ -167,6 +161,9 @@ do
         end
 
         local AssetData = CustomImageManagerAssets[AssetName]
+        if not AssetData or not AssetData.URL or AssetData.URL == "" then
+            return false, "no download url"
+        end
 
         RecursiveCreatePath(AssetData.Path, true)
 
@@ -882,6 +879,14 @@ function Library:GetTextBounds(Text, Font, Size, Resolution)
 end;
 
 function Library:GetDarkerColor(Color)
+    if typeof(Color) ~= "Color3" then
+        Color = Library.AccentColor
+    end
+
+    if typeof(Color) ~= "Color3" then
+        Color = Color3.fromRGB(0, 170, 255)
+    end
+
     local H, S, V = Color3.toHSV(Color);
     return Color3.fromHSV(H, S, V / 1.5);
 end;
