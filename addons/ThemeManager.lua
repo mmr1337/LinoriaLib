@@ -16,6 +16,10 @@ local ThemeManager = {} do
 	}
 
 	function ThemeManager:ApplyTheme(theme)
+		if type(theme) ~= 'string' or theme == '' then
+			return
+		end
+
 		local customThemeData = self:GetCustomTheme(theme)
 		local data = customThemeData or self.BuiltInThemes[theme]
 
@@ -151,6 +155,10 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:GetCustomTheme(file)
+		if type(file) ~= 'string' or file == '' then
+			return nil
+		end
+
 		local path = self.Folder .. '/themes/' .. file
 		if not isfile(path) then
 			return nil
