@@ -255,7 +255,7 @@ local ThemeManager = {} do
 
 
 	function ThemeManager:CreateVisualsManager(groupbox)
-		groupbox:AddSlider('ThemeManager_AutoScale', { Text = 'UI Scale %', Default = 100, Min = 70, Max = 150, Rounding = 0 }):OnChanged(function(Value)
+		groupbox:AddSlider('ThemeManager_AutoScale', { Text = 'UI Scale %', Default = 100, Min = 90, Max = 150, Rounding = 0 }):OnChanged(function(Value)
 			if self.Library.SetAutoScaleMultiplier then
 				self.Library:SetAutoScaleMultiplier(Value / 100)
 			end
