@@ -257,6 +257,14 @@ local Library = {
     Particles = {};
 
     ImageManager = CustomImageManager;
+
+    Registry = {};
+    RegistryMap = {};
+    OpenedFrames = {};
+
+    CurrentRainbowHue = 0;
+    CurrentRainbowColor = Color3.new();
+    CurrentPulsarValue = 0;
 };
 
 if RunService:IsStudio() then
@@ -278,39 +286,181 @@ local function ApplyTextScale(TextSize)
     return TextSize * DPIScale
 end
 
-local RainbowStep = 0
-local PulsarStep = 0
-local Hue = 0
 
-table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
-    RainbowStep = RainbowStep + Delta
-    PulsarStep = PulsarStep + Delta
-
-    if Library.UpdateBackgroundParticles then
-        Library:UpdateBackgroundParticles(Delta)
+function Library:SafeCallback(Func, ...)
+    if not (Func and typeof(Func) == "function") then
+        return
     end
 
-    if RainbowStep >= (1 / 60) then
-        RainbowStep = 0
+    local Result = table.pack(xpcall(Func, function(Error)
+        task.defer(error, debug.traceback(Error, 2))
+        if Library.NotifyOnError then
+            Library:Notify(Error)
+        end
 
-        Hue = Hue + (1 / 400);
+        return Error
+    end, ...))
 
-        if Hue > 1 then
-            Hue = 0;
+    if not Result[1] then
+        return nil
+    end
+
+    return table.unpack(Result, 2, Result.n)
+end
+
+function Library:AttemptSave()
+    if (not Library.SaveManager) then return end
+    Library.SaveManager:Save()
+end
+
+function Library:Create(Class, Properties)
+    local _Instance = Class
+
+    if typeof(Class) == "string" then
+        _Instance = Instance.new(Class)
+    end
+
+    for Property, Value in next, Properties do
+        if (Property == "Size" or Property == "Position") then
+            Value = ApplyDPIScale(Value)
+        elseif Property == "TextSize" then
+            Value = ApplyTextScale(Value)
+        end
+
+        local success, err = pcall(function()
+            _Instance[Property] = Value
+        end)
+
+        if (not success) then
+            warn(err)
+        end
+    end
+
+    return _Instance
+end
+
+function Library:ApplyTextStroke(Inst)
+    Inst.TextStrokeTransparency = 1;
+
+    Library:Create('UIStroke', {
+        Color = Color3.new(0, 0, 0);
+        Thickness = 1;
+        LineJoinMode = Enum.LineJoinMode.Miter;
+        Parent = Inst;
+    });
+end;
+
+function Library:CreateLabel(Properties, IsHud)
+    local _Instance = Library:Create('TextLabel', {
+        BackgroundTransparency = 1;
+        Font = Library.Font;
+        TextColor3 = Library.FontColor;
+        TextSize = 16;
+        TextStrokeTransparency = 0;
+    });
+
+    Library:ApplyTextStroke(_Instance);
+
+    Library:AddToRegistry(_Instance, {
+        TextColor3 = 'FontColor';
+    }, IsHud);
+
+    return Library:Create(_Instance, Properties);
+end;
+
+function Library:GetColor(ColorIdx)
+    local Color = Library[ColorIdx];
+    if not Color then return Color3.new(1, 1, 1) end
+
+    local Rainbow = Library[ColorIdx .. 'RGB'];
+    local Pulsar = Library[ColorIdx .. 'Pulsar'];
+    local RGBSpeed = Library[ColorIdx .. 'RGBSpeed'] or 1;
+    local PulsarSpeed = Library[ColorIdx .. 'PulsarSpeed'] or 1;
+
+    if Rainbow then
+        local H = (tick() * (RGBSpeed / 10)) % 1;
+        return Color3.fromHSV(H, 0.8, 1);
+    end
+
+    if Pulsar then
+        local PulsarColor = Library[ColorIdx .. 'PulsarColor'] or Color3.new(0, 0, 0);
+        local Alpha = (math.sin(tick() * (PulsarSpeed * 5)) + 1) / 2;
+        return Color:Lerp(PulsarColor, Alpha);
+    end
+
+    return Color;
+end;
+
+function Library:UpdateColorsUsingRegistry()
+    for Idx, Object in next, Library.Registry do
+        for Property, ColorIdx in next, Object.Properties do
+            if typeof(ColorIdx) == "string" then
+                Object.Instance[Property] = Library:GetColor(ColorIdx)
+            elseif typeof(ColorIdx) == "function" then
+                Object.Instance[Property] = ColorIdx()
+            end
+        end
+    end
+end
+
+function Library:UpdateGUIStyle()
+    local Rounding = Library.GUIRounding
+
+    for _, Desc in next, Library.ScreenGui:GetDescendants() do
+        if Desc:IsA('UICorner') then
+            Desc.CornerRadius = UDim.new(0, Rounding)
+        end
+    end
+
+    if Library.Dimmer then
+        local ShouldShow = Library.MenuOpen and Library.BackgroundDimming
+        if ShouldShow and not Library.Dimmer.Visible then
+            Library.Dimmer.BackgroundTransparency = 0.5
+            Library.Dimmer.Visible = true
+        elseif not ShouldShow and Library.Dimmer.Visible then
+            Library.Dimmer.Visible = false
+        end
+    end
+end
+
+function Library:AddToRegistry(Instance, Properties, IsHud)
+    local Idx = #Library.Registry + 1;
+
+    local Data = {
+        Instance = Instance;
+        Properties = Properties;
+        Idx = Idx;
+    };
+
+    table.insert(Library.Registry, Data);
+    Library.RegistryMap[Instance] = Data;
+
+    if IsHud then
+        table.insert(Library.HudRegistry, Data);
+    end;
+end;
+
+function Library:RemoveFromRegistry(Instance)
+    local Data = Library.RegistryMap[Instance];
+
+    if Data then
+        for Idx = #Library.Registry, 1, -1 do
+            if Library.Registry[Idx] == Data then
+                table.remove(Library.Registry, Idx);
+            end;
         end;
 
-        Library.CurrentRainbowHue = Hue;
-        Library.CurrentRainbowColor = Color3.fromHSV(Hue, 0.8, 1);
-    end
+        if Library.HudRegistry then
+            for Idx = #Library.HudRegistry, 1, -1 do
+                if Library.HudRegistry[Idx] == Data then
+                    table.remove(Library.HudRegistry, Idx);
+                end;
+            end;
+        end
 
-    if PulsarStep >= (1 / 60) then
-        PulsarStep = 0
-
-        Library.CurrentPulsarValue = (math.sin(tick() * 5) + 1) / 2
-    end
-
-    Library:UpdateColorsUsingRegistry()
-end))
+        Library.RegistryMap[Instance] = nil;
+    end;
+end;
 
 
 local function GetPlayersString()
@@ -737,98 +887,6 @@ function Library:GetDarkerColor(Color)
 end;
 Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor);
 
-function Library:AddToRegistry(Instance, Properties, IsHud)
-    local Idx = #Library.Registry + 1;
-    local Data = {
-        Instance = Instance;
-        Properties = Properties;
-        Idx = Idx;
-    };
-
-    table.insert(Library.Registry, Data);
-    Library.RegistryMap[Instance] = Data;
-
-    if IsHud then
-        table.insert(Library.HudRegistry, Data);
-    end;
-end;
-
-function Library:RemoveFromRegistry(Instance)
-    local Data = Library.RegistryMap[Instance];
-
-    if Data then
-        for Idx = #Library.Registry, 1, -1 do
-            if Library.Registry[Idx] == Data then
-                table.remove(Library.Registry, Idx);
-            end;
-        end;
-
-        for Idx = #Library.HudRegistry, 1, -1 do
-            if Library.HudRegistry[Idx] == Data then
-                table.remove(Library.HudRegistry, Idx);
-            end;
-        end;
-
-        Library.RegistryMap[Instance] = nil;
-    end;
-end;
-
-function Library:GetColor(ColorIdx)
-    local Color = Library[ColorIdx];
-    if not Color then return Color3.new(1, 1, 1) end
-
-    local Rainbow = Library[ColorIdx .. 'RGB'];
-    local Pulsar = Library[ColorIdx .. 'Pulsar'];
-    local RGBSpeed = Library[ColorIdx .. 'RGBSpeed'] or 1;
-    local PulsarSpeed = Library[ColorIdx .. 'PulsarSpeed'] or 1;
-
-    if Rainbow then
-        local H = (tick() * (RGBSpeed / 10)) % 1;
-        return Color3.fromHSV(H, 0.8, 1);
-    end
-
-    if Pulsar then
-        local PulsarColor = Library[ColorIdx .. 'PulsarColor'] or Color3.new(0, 0, 0);
-        local Alpha = (math.sin(tick() * (PulsarSpeed * 5)) + 1) / 2;
-        return Color:Lerp(PulsarColor, Alpha);
-    end
-
-    return Color;
-end;
-
-function Library:UpdateColorsUsingRegistry()
-    for Idx, Object in next, Library.Registry do
-        for Property, ColorIdx in next, Object.Properties do
-            if typeof(ColorIdx) == "string" then
-                Object.Instance[Property] = Library:GetColor(ColorIdx)
-            elseif typeof(ColorIdx) == "function" then
-                Object.Instance[Property] = ColorIdx()
-            end
-        end
-    end
-end
-
-function Library:UpdateGUIStyle()
-    local Rounding = Library.GUIRounding
-
-    -- Apply rounding to all UICorner instances in the ScreenGui
-    for _, Desc in next, Library.ScreenGui:GetDescendants() do
-        if Desc:IsA('UICorner') then
-            Desc.CornerRadius = UDim.new(0, Rounding)
-        end
-    end
-
-    -- Dimmer: only show if menu is open AND BackgroundDimming is enabled
-    if Library.Dimmer then
-        local ShouldShow = Library.MenuOpen and Library.BackgroundDimming
-        if ShouldShow and not Library.Dimmer.Visible then
-            Library.Dimmer.BackgroundTransparency = 0.5
-            Library.Dimmer.Visible = true
-        elseif not ShouldShow and Library.Dimmer.Visible then
-            Library.Dimmer.Visible = false
-        end
-    end
-end
 
 function Library:UpdateBackgroundParticles(Delta)
     local ShouldShow = Library.BackgroundParticles and Library.MenuOpen
@@ -894,34 +952,59 @@ function Library:UpdateBackgroundParticles(Delta)
         end
     end
 
-    -- Update particles
-    for _, data in next, Library.Particles do
-        local frame = data.frame
-        if frame and frame.Parent then
-            data.posX = data.posX + (data.velocityX * Delta)
-            data.posY = data.posY + (data.velocityY * Delta)
+    for _, Particle in next, Library.Particles do
+        Particle.currentRotation = Particle.currentRotation + (Particle.rotationSpeed * Delta)
+        Particle.frame.Rotation = Particle.currentRotation
 
-            local pSize = frame.Size.X.Offset
-            if data.posX < 0 then
-                data.posX = 0; data.velocityX = math.abs(data.velocityX)
-            elseif data.posX > ScreenSize.X - pSize then
-                data.posX = ScreenSize.X - pSize; data.velocityX = -math.abs(data.velocityX)
-            end
+        Particle.posX = Particle.posX + (Particle.velocityX * Delta)
+        Particle.posY = Particle.posY + (Particle.velocityY * Delta)
 
-            if data.posY < 0 then
-                data.posY = 0; data.velocityY = math.abs(data.velocityY)
-            elseif data.posY > ScreenSize.Y - pSize then
-                data.posY = ScreenSize.Y - pSize; data.velocityY = -math.abs(data.velocityY)
-            end
+        if Particle.posX < -MAX_SIZE then Particle.posX = ScreenSize.X
+        elseif Particle.posX > ScreenSize.X + MAX_SIZE then Particle.posX = 0 end
 
-            frame.Position = UDim2.fromOffset(data.posX, data.posY)
-            data.currentRotation = (data.currentRotation + (data.rotationSpeed * Delta)) % 360
-            
-            local img = frame:FindFirstChild("Image")
-            if img then img.Rotation = data.currentRotation end
-        end
+        if Particle.posY < -MAX_SIZE then Particle.posY = ScreenSize.Y
+        elseif Particle.posY > ScreenSize.Y + MAX_SIZE then Particle.posY = 0 end
+
+        Particle.frame.Position = UDim2.fromOffset(Particle.posX, Particle.posY)
     end
 end
+
+local RainbowStep = 0
+local PulsarStep = 0
+local Hue = 0
+
+table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
+    RainbowStep = RainbowStep + Delta
+    PulsarStep = PulsarStep + Delta
+
+    if Library.UpdateBackgroundParticles then
+        Library:UpdateBackgroundParticles(Delta)
+    end
+
+    if RainbowStep >= (1 / 60) then
+        RainbowStep = 0
+
+        Hue = Hue + (1 / 400);
+
+        if Hue > 1 then
+            Hue = 0;
+        end;
+
+        Library.CurrentRainbowHue = Hue;
+        Library.CurrentRainbowColor = Color3.fromHSV(Hue, 0.8, 1);
+    end
+
+    if PulsarStep >= (1 / 60) then
+        PulsarStep = 0
+
+        Library.CurrentPulsarValue = (math.sin(tick() * 5) + 1) / 2
+    end
+
+    Library:UpdateColorsUsingRegistry()
+end))
+
+
+
 
 function Library:GiveSignal(Signal)
     -- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
