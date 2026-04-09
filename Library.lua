@@ -207,6 +207,7 @@ local Options = {};
 getgenv().Toggles = Toggles;
 getgenv().Options = Options;
 
+local Library = {
     -- signals --
     UnloadSignals = {};
     Signals = {};
