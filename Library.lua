@@ -176,9 +176,6 @@ function Library:SetAutoScaleMultiplier(Value)
     self:RefreshAutoScale()
 end
 
-Library:RegisterAutoScaleTarget(ScreenGui)
-Library:RegisterAutoScaleTarget(OverlayGui)
-
 table.insert(Library.Signals, Workspace:GetPropertyChangedSignal('CurrentCamera'):Connect(function()
     local camera = Workspace.CurrentCamera
     if camera then
@@ -3335,6 +3332,7 @@ do
     Library.KeybindFrame = KeybindOuter;
     Library.KeybindContainer = KeybindContainer;
     Library:MakeDraggable(KeybindOuter);
+    Library:RegisterAutoScaleTarget(KeybindOuter);
 end;
 
 function Library:SetWatermarkVisibility(Bool)
@@ -3489,6 +3487,8 @@ function Library:CreateWindow(...)
         ClipsDescendants = true,
         Parent = ScreenGui;
     });
+
+    Library:RegisterAutoScaleTarget(Outer);
 
     local MainCorner = Library:Create('UICorner', {
         CornerRadius = UDim.new(0, Library.GUIRounding),
