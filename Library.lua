@@ -5,6 +5,7 @@ local Teams = game:GetService('Teams');
 local Players = game:GetService('Players');
 local RunService = game:GetService('RunService')
 local TweenService = game:GetService('TweenService');
+local Workspace = game:GetService('Workspace');
 local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
 local Mouse = LocalPlayer:GetMouse();
@@ -67,6 +68,14 @@ local Library = {
     DevicePlatform = Enum.Platform.None;
     CanDrag = true;
     CantDragForced = false;
+
+    AutoScaleEnabled = true;
+    AutoScaleMultiplier = 1;
+    AutoScaleMin = 0.72;
+    AutoScaleMax = 1.2;
+    AutoScaleBaseResolution = Vector2.new(1920, 1080);
+    AutoScaleValue = 1;
+    AutoScaleTargets = {};
 };
 
 if RunService:IsStudio() then
@@ -76,6 +85,115 @@ else
         Library.DevicePlatform = InputService:GetPlatform()
     end)
     Library.IsMobile = (Library.DevicePlatform == Enum.Platform.Android or Library.DevicePlatform == Enum.Platform.IOS)
+end
+
+if Library.IsMobile then
+    Library.AutoScaleMin = 0.78
+    Library.AutoScaleMax = 1.3
+end
+
+local function GetViewportSize()
+    local camera = Workspace.CurrentCamera
+    if camera and camera.ViewportSize.X > 0 and camera.ViewportSize.Y > 0 then
+        return camera.ViewportSize
+    end
+
+    local x, y = GuiService:GetScreenResolution()
+    if x > 0 and y > 0 then
+        return Vector2.new(x, y)
+    end
+
+    return Vector2.new(1920, 1080)
+end
+
+function Library:CalculateAutoScale()
+    local viewport = GetViewportSize()
+    local base = self.AutoScaleBaseResolution
+
+    local scale = math.min(viewport.X / base.X, viewport.Y / base.Y)
+    if self.IsMobile then
+        scale = scale * 1.35
+    end
+
+    scale = math.clamp(scale, self.AutoScaleMin, self.AutoScaleMax)
+    return scale * self.AutoScaleMultiplier
+end
+
+function Library:RefreshAutoScale()
+    self.AutoScaleValue = self.AutoScaleEnabled and self:CalculateAutoScale() or 1
+
+    for target, data in next, self.AutoScaleTargets do
+        if not target or target.Parent == nil then
+            self.AutoScaleTargets[target] = nil
+        else
+            local uiScale = data.UIScale
+            if not uiScale or uiScale.Parent ~= target then
+                uiScale = target:FindFirstChild('__LinoriaAutoScale')
+                if not uiScale then
+                    uiScale = Instance.new('UIScale')
+                    uiScale.Name = '__LinoriaAutoScale'
+                    uiScale.Parent = target
+                end
+                data.UIScale = uiScale
+            end
+
+            uiScale.Scale = self.AutoScaleValue * (data.Multiplier or 1)
+        end
+    end
+end
+
+function Library:RegisterAutoScaleTarget(Target, Multiplier)
+    if not Target then
+        return
+    end
+
+    local uiScale = Target:FindFirstChild('__LinoriaAutoScale')
+    if not uiScale then
+        uiScale = Instance.new('UIScale')
+        uiScale.Name = '__LinoriaAutoScale'
+        uiScale.Parent = Target
+    end
+
+    self.AutoScaleTargets[Target] = {
+        UIScale = uiScale,
+        Multiplier = Multiplier or 1
+    }
+
+    self:RefreshAutoScale()
+end
+
+function Library:SetAutoScaleEnabled(Value)
+    self.AutoScaleEnabled = not not Value
+    self:RefreshAutoScale()
+end
+
+function Library:SetAutoScaleMultiplier(Value)
+    if type(Value) ~= 'number' then
+        return
+    end
+
+    self.AutoScaleMultiplier = math.clamp(Value, 0.5, 2)
+    self:RefreshAutoScale()
+end
+
+Library:RegisterAutoScaleTarget(ScreenGui)
+Library:RegisterAutoScaleTarget(OverlayGui)
+
+table.insert(Library.Signals, Workspace:GetPropertyChangedSignal('CurrentCamera'):Connect(function()
+    local camera = Workspace.CurrentCamera
+    if camera then
+        table.insert(Library.Signals, camera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
+            Library:RefreshAutoScale()
+        end))
+    end
+
+    Library:RefreshAutoScale()
+end))
+
+if Workspace.CurrentCamera then
+    table.insert(Library.Signals, Workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
+        Library:RefreshAutoScale()
+    end))
 end
 
 local RainbowStep = 0
